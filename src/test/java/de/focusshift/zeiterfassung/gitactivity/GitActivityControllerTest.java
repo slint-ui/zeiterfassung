@@ -987,22 +987,6 @@ class GitActivityControllerTest implements ControllerTest {
 
         @Test
         void ensureLoggedDurationFormattedAsHoursAndMinutes() throws Exception {
-    class AutoSync {
-
-        @Test
-        void ensureAutoSyncTrueWhenSyncConfiguredAndNeverSyncedToday() throws Exception {
-            stubCommonDependencies("tronical"); // getLastSyncTime returns null → never synced
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of());
-
-            // No date param = today
-            perform(get("/github-activity").with(oidcSubject("user-uuid")))
-                .andExpect(status().isOk())
-                .andExpect(model().attribute("autoSync", true));
-        }
-
-        @Test
-        void ensureLoggedDurationFormattedAsHoursAndMinutes() throws Exception {
             stubCommonDependencies("tronical");
             when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
                 anyString(), any(), any())).thenReturn(List.of());
