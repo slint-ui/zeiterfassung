@@ -101,7 +101,7 @@ class BitbucketActivityProviderTest {
         @Test
         void ensureConfiguredWhenBothKeyAndSecretPresent() {
             when(platformSettingsService.getBitbucketSettings())
-                .thenReturn(new GitActivityPlatformSettings("BITBUCKET", "key", "secret", null, null, null, null, null));
+                .thenReturn(new GitActivityPlatformSettings("BITBUCKET", "key", "secret", null, null, null));
 
             assertThat(sut.isConfigured()).isTrue();
         }

@@ -9,7 +9,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -21,7 +20,6 @@ import static de.focusshift.zeiterfassung.user.Theme.LIGHT;
 import static java.util.Locale.ENGLISH;
 import static java.util.Locale.GERMAN;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -334,110 +332,6 @@ class UserSettingsServiceTest {
                     assertThat(userSettingsEntity.getTenantUserLocalId()).isEqualTo(localId);
                     assertThat(userSettingsEntity.getLocaleBrowserSpecific()).isEqualTo(GERMAN);
                 });
-        }
-    }
-
-    @Nested
-    class LinkVerifiedGithubLogin {
-
-        @Test
-        void ensureLinksLoginAsVerifiedWhenNotTaken() {
-            final UserIdComposite userIdComposite = anyUserIdComposite();
-            final Long localId = userIdComposite.localId().value();
-
-            when(userSettingsRepository.findByGithubLoginAndGithubLoginVerifiedTrue("octocat"))
-                .thenReturn(Optional.empty());
-
-            final UserSettingsEntity entity = new UserSettingsEntity();
-            entity.setTenantUserLocalId(localId);
-            entity.setTheme(Theme.SYSTEM);
-            when(userSettingsRepository.findById(localId)).thenReturn(Optional.of(entity));
-
-            final boolean linked = sut.linkVerifiedGithubLogin(userIdComposite, "octocat");
-
-            assertThat(linked).isTrue();
-            final ArgumentCaptor<UserSettingsEntity> captor = ArgumentCaptor.forClass(UserSettingsEntity.class);
-            verify(userSettingsRepository).save(captor.capture());
-            assertThat(captor.getValue().getGithubLogin()).isEqualTo("octocat");
-            assertThat(captor.getValue().isGithubLoginVerified()).isTrue();
-        }
-
-        @Test
-        void ensureAllowsSameUserToReverifyTheirOwnLogin() {
-            final UserIdComposite userIdComposite = anyUserIdComposite();
-            final Long localId = userIdComposite.localId().value();
-
-            final UserSettingsEntity existing = new UserSettingsEntity();
-            existing.setTenantUserLocalId(localId);
-            existing.setTheme(Theme.SYSTEM);
-            when(userSettingsRepository.findByGithubLoginAndGithubLoginVerifiedTrue("octocat"))
-                .thenReturn(Optional.of(existing));
-            when(userSettingsRepository.findById(localId)).thenReturn(Optional.of(existing));
-
-            final boolean linked = sut.linkVerifiedGithubLogin(userIdComposite, "octocat");
-
-            assertThat(linked).isTrue();
-            verify(userSettingsRepository).save(existing);
-        }
-
-        @Test
-        void ensureRejectsLoginAlreadyVerifiedByAnotherUser() {
-            final UserIdComposite userIdComposite = anyUserIdComposite();
-
-            final UserSettingsEntity other = new UserSettingsEntity();
-            other.setTenantUserLocalId(2L);
-            when(userSettingsRepository.findByGithubLoginAndGithubLoginVerifiedTrue("octocat"))
-                .thenReturn(Optional.of(other));
-
-            final boolean linked = sut.linkVerifiedGithubLogin(userIdComposite, "octocat");
-
-            assertThat(linked).isFalse();
-            verify(userSettingsRepository, never()).save(any());
-        }
-
-        @Test
-        void ensureReturnsFalseWhenUniqueIndexRejectsConcurrentDuplicate() {
-            final UserIdComposite userIdComposite = anyUserIdComposite();
-            final Long localId = userIdComposite.localId().value();
-
-            when(userSettingsRepository.findByGithubLoginAndGithubLoginVerifiedTrue("octocat"))
-                .thenReturn(Optional.empty());
-            final UserSettingsEntity entity = new UserSettingsEntity();
-            entity.setTenantUserLocalId(localId);
-            entity.setTheme(Theme.SYSTEM);
-            when(userSettingsRepository.findById(localId)).thenReturn(Optional.of(entity));
-            when(userSettingsRepository.save(any())).thenThrow(new DataIntegrityViolationException("duplicate"));
-
-            final boolean linked = sut.linkVerifiedGithubLogin(userIdComposite, "octocat");
-
-            assertThat(linked).isFalse();
-        }
-    }
-
-    @Nested
-    class ClearGithubLogin {
-
-        @Test
-        void ensureClearsLoginVerifiedFlagAndInstallation() {
-            final UserIdComposite userIdComposite = anyUserIdComposite();
-            final Long localId = userIdComposite.localId().value();
-
-            final UserSettingsEntity entity = new UserSettingsEntity();
-            entity.setTenantUserLocalId(localId);
-            entity.setTheme(Theme.SYSTEM);
-            entity.setGithubLogin("octocat");
-            entity.setGithubLoginVerified(true);
-            entity.setGithubInstallationId(123L);
-            when(userSettingsRepository.findById(localId)).thenReturn(Optional.of(entity));
-            when(userSettingsRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-
-            sut.clearGithubLogin(userIdComposite);
-
-            final ArgumentCaptor<UserSettingsEntity> captor = ArgumentCaptor.forClass(UserSettingsEntity.class);
-            verify(userSettingsRepository).save(captor.capture());
-            assertThat(captor.getValue().getGithubLogin()).isNull();
-            assertThat(captor.getValue().isGithubLoginVerified()).isFalse();
-            assertThat(captor.getValue().getGithubInstallationId()).isNull();
         }
     }
 

@@ -4,7 +4,6 @@ import jakarta.servlet.ServletRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -121,45 +120,13 @@ public class UserSettingsService {
             .toList();
     }
 
-    /**
-     * Links {@code githubLogin} to this user as a <em>verified</em> GitHub identity, but only if
-     * it is not already verified by a different user. Returns {@code false} on conflict (the login
-     * is already owned by someone else). This is the only path that may set the verified flag — it
-     * is reached exclusively from the OAuth callback, where GitHub has proven ownership of the login.
-     *
-     * <p>The application-level check is a read-then-write and therefore racy; the unique index on
-     * {@code (tenant_id, github_login) WHERE github_login_verified} backs it up, so a concurrent
-     * duplicate surfaces as a {@link DataIntegrityViolationException} and is also treated as a conflict.
-     */
-    public boolean linkVerifiedGithubLogin(UserIdComposite userIdComposite, String githubLogin) {
-        final Long localId = userIdComposite.localId().value();
-        final Optional<UserSettingsEntity> existing =
-            userSettingsRepository.findByGithubLoginAndGithubLoginVerifiedTrue(githubLogin);
-        if (existing.isPresent() && !localId.equals(existing.get().getTenantUserLocalId())) {
-            return false;
-        }
+    public UserSettings updateGithubLogin(UserIdComposite userIdComposite, @Nullable String githubLogin, boolean verified) {
         final UserSettingsEntity entity = findOrGetDefault(userIdComposite);
         entity.setGithubLogin(githubLogin);
-        entity.setGithubLoginVerified(true);
-        try {
-            userSettingsRepository.save(entity);
-        } catch (DataIntegrityViolationException e) {
-            LOG.warn("Concurrent verify conflict for github login {}", githubLogin);
-            return false;
-        }
-        LOG.info("Verified GitHub login for user {}", localId);
-        return true;
-    }
-
-    /** Clears the user's GitHub identity — verified login and any personal app installation. */
-    public UserSettings clearGithubLogin(UserIdComposite userIdComposite) {
-        final UserSettingsEntity entity = findOrGetDefault(userIdComposite);
-        entity.setGithubLogin(null);
-        entity.setGithubLoginVerified(false);
-        entity.setGithubInstallationId(null);
-        final UserSettingsEntity persisted = userSettingsRepository.save(entity);
-        LOG.info("Cleared GitHub login for user {}", userIdComposite.localId().value());
-        return toUserSettings(persisted);
+        entity.setGithubLoginVerified(verified);
+        final UserSettingsEntity persistedEntity = userSettingsRepository.save(entity);
+        LOG.info("Updated github login for user {} verified={}", userIdComposite.localId().value(), verified);
+        return toUserSettings(persistedEntity);
     }
 
     public UserSettings updateGithubToken(UserIdComposite userIdComposite, @Nullable String githubToken) {
