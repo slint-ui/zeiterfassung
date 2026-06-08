@@ -17,7 +17,9 @@ public record GitActivityPlatformSettings(
     String appSecret,
     String orgName,
     String appName,
-    String callbackUrl
+    String callbackUrl,
+    String clientId,
+    String clientSecret
 ) {
     /** True when the minimum credentials (app ID + secret) are present. */
     public boolean isConfigured() {
@@ -41,8 +43,17 @@ public record GitActivityPlatformSettings(
         return isConfigured() && appName != null && !appName.isBlank();
     }
 
+    /**
+     * True when GitHub App OAuth client credentials are present — enables the
+     * user-authorization "verify your GitHub identity" flow on the account page.
+     */
+    public boolean isUserOAuthConfigured() {
+        return clientId != null && !clientId.isBlank()
+            && clientSecret != null && !clientSecret.isBlank();
+    }
+
     /** Returns an unconfigured placeholder for a given platform. */
     public static GitActivityPlatformSettings empty(String platform) {
-        return new GitActivityPlatformSettings(platform, null, null, null, null, null);
+        return new GitActivityPlatformSettings(platform, null, null, null, null, null, null, null);
     }
 }

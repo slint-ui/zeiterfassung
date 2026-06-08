@@ -18,11 +18,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.ModelAndView;
-
-import java.util.Map;
 
 import static de.focusshift.zeiterfassung.search.UserSearchViewHelper.USER_SEARCH_QUERY_PARAM;
 import static de.focusshift.zeiterfassung.web.HotwiredTurboConstants.TURBO_FRAME_HEADER;
@@ -39,7 +35,6 @@ class AccountController implements HasTimeClock, HasLaunchpad, HasUserSearch {
     private final UserSearchViewHelper userSearchViewHelper;
     private final GitOAuthTokenRepository gitOAuthTokenRepository;
     private final GitActivityPlatformSettingsService platformSettingsService;
-    private final RestClient restClient;
 
     AccountController(UserSettingsService userSettingsService,
                       UserSearchViewHelper userSearchViewHelper,
@@ -49,10 +44,6 @@ class AccountController implements HasTimeClock, HasLaunchpad, HasUserSearch {
         this.userSearchViewHelper = userSearchViewHelper;
         this.gitOAuthTokenRepository = gitOAuthTokenRepository;
         this.platformSettingsService = platformSettingsService;
-        this.restClient = RestClient.builder()
-            .defaultHeader("User-Agent", "zeiterfassung")
-            .defaultHeader("Accept", "application/vnd.github+json")
-            .build();
     }
 
     @GetMapping
@@ -74,20 +65,15 @@ class AccountController implements HasTimeClock, HasLaunchpad, HasUserSearch {
     }
 
     /**
-     * Saves the GitHub username and notification preference.
-     * PAT field has been removed — GitHub App installations now cover private/customer repos.
+     * Saves notification preferences. The GitHub identity is managed separately via the OAuth
+     * verify flow and is intentionally NOT settable here — a client must not be able to mark a
+     * login as verified, which is what previously allowed spoofing and duplicate verified logins.
      */
     @PostMapping
-    ModelAndView saveAccount(@RequestParam(value = "githubLogin", required = false) String githubLogin,
-                             @RequestParam(value = "githubLoginVerified", required = false, defaultValue = "false") boolean verified,
-                             @RequestParam(value = "notificationsEnabled", required = false, defaultValue = "false") boolean notificationsEnabled,
+    ModelAndView saveAccount(@RequestParam(value = "notificationsEnabled", required = false, defaultValue = "false") boolean notificationsEnabled,
                              @RequestParam(value = "showStandaloneCommits", required = false, defaultValue = "false") boolean showStandaloneCommits,
                              @RequestParam(value = "reminderDaysBeforeLock", required = false, defaultValue = "2") int reminderDaysBeforeLock,
                              @CurrentUser CurrentOidcUser currentOidcUser, Model model) {
-        final String trimmed = githubLogin != null ? githubLogin.trim() : null;
-        final String toSave = trimmed != null && !trimmed.isEmpty() ? trimmed : null;
-        final boolean saveVerified = toSave != null && verified;
-        userSettingsService.updateGithubLogin(currentOidcUser.getUserIdComposite(), toSave, saveVerified);
         userSettingsService.updateNotificationsEnabled(currentOidcUser.getUserIdComposite(), notificationsEnabled);
         userSettingsService.updateShowStandaloneCommits(currentOidcUser.getUserIdComposite(), showStandaloneCommits);
         userSettingsService.updateReminderDaysBeforeLock(currentOidcUser.getUserIdComposite(), reminderDaysBeforeLock);
@@ -132,41 +118,6 @@ class AccountController implements HasTimeClock, HasLaunchpad, HasUserSearch {
         return "redirect:/account";
     }
 
-    // ── GitHub username verification (Turbo Frame) ────────────────────────────
-
-    @GetMapping(value = "/github-verify", headers = TURBO_FRAME_HEADER)
-    ModelAndView githubVerify(@RequestParam(value = "username", required = false) String username,
-                              @CurrentUser CurrentOidcUser currentOidcUser, Model model) {
-        if (username == null || username.isBlank()) {
-            model.addAttribute("error", "account.github-login.verify.not-found");
-            return new ModelAndView("account/github-verify-result", model.asMap());
-        }
-        final String trimmedUsername = username.trim();
-        try {
-            final Map<?, ?> response = restClient.get()
-                .uri("https://api.github.com/users/{username}", trimmedUsername)
-                .retrieve()
-                .body(Map.class);
-            if (response != null) {
-                final String login = (String) response.get("login");
-                final String name = response.get("name") != null ? (String) response.get("name") : login;
-                final String avatarUrl = (String) response.get("avatar_url");
-                model.addAttribute("avatarUrl", avatarUrl);
-                model.addAttribute("displayName", name);
-                model.addAttribute("username", login);
-                model.addAttribute("verified", true);
-            } else {
-                model.addAttribute("error", "account.github-login.verify.error");
-            }
-        } catch (HttpClientErrorException.NotFound e) {
-            model.addAttribute("error", "account.github-login.verify.not-found");
-        } catch (Exception e) {
-            LOG.warn("GitHub verification failed for username={}", trimmedUsername, e);
-            model.addAttribute("error", "account.github-login.verify.error");
-        }
-        return new ModelAndView("account/github-verify-result", model.asMap());
-    }
-
     private void populateModel(Model model, CurrentOidcUser currentOidcUser,
                                UserSettings userSettings, Long userLocalId, boolean savedSuccess) {
         final String fullName = currentOidcUser.getUserInfo() != null
@@ -188,7 +139,8 @@ class AccountController implements HasTimeClock, HasLaunchpad, HasUserSearch {
         model.addAttribute("notificationsEnabled", userSettings.notificationsEnabled());
         model.addAttribute("showStandaloneCommits", userSettings.showStandaloneCommits());
         model.addAttribute("reminderDaysBeforeLock", userSettings.reminderDaysBeforeLock());
-        // GitHub personal install (customer repos)
+        // GitHub identity verification (OAuth) + personal install (customer repos)
+        model.addAttribute("githubUserOAuthConfigured", gh.isUserOAuthConfigured());
         model.addAttribute("githubPersonalInstallConfigured", gh.isPersonalInstallConfigured());
         model.addAttribute("githubInstallationId", userSettings.githubInstallationId().orElse(null));
         // Bitbucket

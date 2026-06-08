@@ -42,30 +42,33 @@ public class GitActivityPlatformSettingsService {
         return repository.findById(platform)
             .map(e -> new GitActivityPlatformSettings(
                 e.getPlatform(), e.getAppId(), e.getAppSecret(),
-                e.getOrgName(), e.getAppName(), e.getCallbackUrl()))
+                e.getOrgName(), e.getAppName(), e.getCallbackUrl(),
+                e.getClientId(), e.getClientSecret()))
             .orElse(GitActivityPlatformSettings.empty(platform));
     }
 
     public void saveGitHubSettings(String appId, String privateKeyPem,
-                                    String orgName, String appName) {
-        save(PLATFORM_GITHUB, appId, privateKeyPem, orgName, appName, null);
+                                    String orgName, String appName,
+                                    String clientId, String clientSecret) {
+        save(PLATFORM_GITHUB, appId, privateKeyPem, orgName, appName, null, clientId, clientSecret);
         LOG.info("GitHub App settings updated — org={} appName={}", orgName, appName);
     }
 
     public void saveBitbucketSettings(String oauthKey, String oauthSecret,
                                        String workspace, String callbackUrl) {
-        save(PLATFORM_BITBUCKET, oauthKey, oauthSecret, workspace, null, callbackUrl);
+        save(PLATFORM_BITBUCKET, oauthKey, oauthSecret, workspace, null, callbackUrl, null, null);
         LOG.info("Bitbucket OAuth settings updated — workspace={}", workspace);
     }
 
     public void saveGitLabSettings(String appId, String appSecret,
                                     String groupUrl) {
-        save(PLATFORM_GITLAB, appId, appSecret, groupUrl, null, null);
+        save(PLATFORM_GITLAB, appId, appSecret, groupUrl, null, null, null, null);
         LOG.info("GitLab settings updated — group={}", groupUrl);
     }
 
     private void save(String platform, String appId, String appSecret,
-                      String orgName, String appName, String callbackUrl) {
+                      String orgName, String appName, String callbackUrl,
+                      String clientId, String clientSecret) {
         final GitActivityPlatformSettingsEntity entity = repository.findById(platform)
             .orElseGet(() -> {
                 final GitActivityPlatformSettingsEntity e = new GitActivityPlatformSettingsEntity();
@@ -77,6 +80,8 @@ public class GitActivityPlatformSettingsService {
         entity.setOrgName(blank(orgName));
         entity.setAppName(blank(appName));
         entity.setCallbackUrl(blank(callbackUrl));
+        entity.setClientId(blank(clientId));
+        entity.setClientSecret(blank(clientSecret));
         repository.save(entity);
     }
 
