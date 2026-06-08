@@ -1001,6 +1001,12 @@ class GitActivityControllerTest implements ControllerTest {
                 .andExpect(model().attribute("autoSync", true));
         }
 
+        @Test
+        void ensureLoggedDurationFormattedAsHoursAndMinutes() throws Exception {
+            stubCommonDependencies("tronical");
+            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                anyString(), any(), any())).thenReturn(List.of());
+
             final de.focusshift.zeiterfassung.timeentry.TimeEntry entry =
                 mock(de.focusshift.zeiterfassung.timeentry.TimeEntry.class);
             when(entry.durationInMinutes()).thenReturn(java.time.Duration.ofMinutes(90));
