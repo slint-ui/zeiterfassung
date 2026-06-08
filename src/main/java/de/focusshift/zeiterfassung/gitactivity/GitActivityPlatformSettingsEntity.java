@@ -33,6 +33,14 @@ public class GitActivityPlatformSettingsEntity {
     @Column(name = "callback_url", length = 1000)
     private String callbackUrl;
 
+    /** GitHub App OAuth client ID — used for the user-authorization ("verify") flow. */
+    @Column(name = "client_id", length = 255)
+    private String clientId;
+
+    /** GitHub App OAuth client secret — used for the user-authorization ("verify") flow. */
+    @Column(name = "client_secret", length = 1000)
+    private String clientSecret;
+
     public String getPlatform() { return platform; }
     public void setPlatform(String platform) { this.platform = platform; }
 
@@ -50,4 +58,10 @@ public class GitActivityPlatformSettingsEntity {
 
     public String getCallbackUrl() { return callbackUrl; }
     public void setCallbackUrl(String callbackUrl) { this.callbackUrl = callbackUrl; }
+
+    public String getClientId() { return clientId; }
+    public void setClientId(String clientId) { this.clientId = clientId; }
+
+    public String getClientSecret() { return clientSecret; }
+    public void setClientSecret(String clientSecret) { this.clientSecret = clientSecret; }
 }

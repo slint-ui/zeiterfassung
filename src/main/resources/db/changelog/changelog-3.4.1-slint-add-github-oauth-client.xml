@@ -1,0 +1,22 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <changeSet author="slint" id="add-github-oauth-client-to-git-activity-platform-settings">
+    <preConditions onFail="MARK_RAN">
+      <not>
+        <columnExists tableName="git_activity_platform_settings" columnName="client_id"/>
+      </not>
+    </preConditions>
+
+    <addColumn tableName="git_activity_platform_settings">
+      <column name="client_id" type="VARCHAR(255)">
+        <constraints nullable="true"/>
+      </column>
+      <column name="client_secret" type="VARCHAR(1000)">
+        <constraints nullable="true"/>
+      </column>
+    </addColumn>
+  </changeSet>
+</databaseChangeLog>

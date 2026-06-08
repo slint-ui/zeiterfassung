@@ -1,0 +1,24 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!--
+    Guarantees one verified GitHub login per user (per tenant). The "verify" flow
+    is now OAuth-based, but the app-level conflict check is a read-then-write and
+    therefore racy; this partial unique index makes a duplicate impossible at the
+    storage layer and prevents the NonUniqueResultException that previously broke
+    the GitHub sync endpoint. Partial index → only verified rows are constrained;
+    unverified/null logins are unaffected.
+  -->
+  <changeSet author="slint" id="unique-verified-github-login-per-tenant">
+    <sql dbms="postgresql">
+      CREATE UNIQUE INDEX IF NOT EXISTS uidx_user_settings_verified_github_login
+        ON user_settings (tenant_id, github_login)
+        WHERE github_login_verified;
+    </sql>
+    <rollback>
+      DROP INDEX IF EXISTS uidx_user_settings_verified_github_login;
+    </rollback>
+  </changeSet>
+</databaseChangeLog>
