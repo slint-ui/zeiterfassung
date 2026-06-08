@@ -31,93 +31,105 @@
           </p>
 
           <!-- Date navigation -->
-          <div class="flex items-center gap-4 mb-6">
-            <a th:href="@{/github-activity(date=${prevDate})}" class="button-secondary">&#9664;</a>
+          <div class="mb-6 flex flex-col sm:flex-row sm:items-center gap-y-2 sm:gap-x-4">
 
-            <!-- Clickable date — opens Duet date picker -->
-            <div class="relative flex items-center gap-1.5">
-              <button type="button" id="gh-date-btn"
-                      class="font-medium hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1.5"
-                      th:title="#{github-activity.pick-date}">
-                <span th:text="${#temporals.format(date, 'EEEE, d MMMM yyyy')}">Monday, 2 June 2026</span>
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0 text-gray-400 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-              </button>
-              <!-- Duet picker — input-wrapper hidden via JS, only calendar popup is shown -->
-              <div id="gh-date-picker-anchor" class="absolute top-full left-0 z-50">
-                <duet-date-picker id="gh-date-picker"
-                                  th:value="${#temporals.format(date, 'yyyy-MM-dd')}">
-                </duet-date-picker>
+            <!-- Row 1 on mobile / leading items on sm+: ◀ date ▶ -->
+            <div class="flex items-center gap-3">
+              <a th:href="@{/github-activity(date=${prevDate})}" class="button-secondary shrink-0">&#9664;</a>
+
+              <!-- Clickable date — opens Duet date picker -->
+              <div class="flex-1 sm:flex-none relative flex items-center justify-center sm:justify-start gap-1.5">
+                <button type="button" id="gh-date-btn"
+                        class="font-medium hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1.5"
+                        th:title="#{github-activity.pick-date}">
+                  <span th:text="${#temporals.format(date, 'EEEE, d MMMM yyyy')}">Monday, 2 June 2026</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0 text-gray-400 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                </button>
+                <!-- Duet picker — input-wrapper hidden via JS, only calendar popup is shown -->
+                <div id="gh-date-picker-anchor" class="absolute top-full left-0 z-50">
+                  <duet-date-picker id="gh-date-picker"
+                                    th:value="${#temporals.format(date, 'yyyy-MM-dd')}">
+                  </duet-date-picker>
+                </div>
               </div>
+
+              <a th:href="@{/github-activity(date=${nextDate})}" class="button-secondary shrink-0">&#9654;</a>
             </div>
 
-            <a th:href="@{/github-activity(date=${nextDate})}" class="button-secondary">&#9654;</a>
+            <!-- Row 2 on mobile / trailing items on sm+: Today · Search · sync status · Refresh -->
+            <div class="flex items-center gap-3 sm:flex-1">
+              <!-- Today button — hidden when already viewing today -->
+              <a th:if="${!isToday}" th:href="@{/github-activity}"
+                 class="button-secondary text-xs"
+                 th:text="#{github-activity.today}">Today</a>
 
-            <!-- Today button — hidden when already viewing today -->
-            <a th:if="${!isToday}" th:href="@{/github-activity}"
-               class="button-secondary text-xs"
-               th:text="#{github-activity.today}">Today</a>
-
-            <!-- Search trigger -->
-            <button type="button"
-                    data-testid="gh-search-trigger"
-                    class="button-secondary text-sm flex items-center gap-1.5"
-                    onclick="ghSearchOpen()">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0 text-gray-500 dark:text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
-              </svg>
-              <span class="hidden xs:inline text-gray-500 dark:text-zinc-400">Search...</span>
-              <kbd class="hidden desktop:inline-flex items-center px-1 py-0.5 text-xs font-mono rounded border border-gray-300 dark:border-zinc-600 text-gray-400 dark:text-zinc-500">⌘K</kbd>
-            </button>
-            <div th:if="${syncConfigured}" class="ml-auto flex items-center gap-3">
-              <span th:if="${lastSyncedAt != null}"
-                    class="text-xs text-gray-400 dark:text-zinc-500">
-                <span th:text="#{github-activity.last-synced}">Last synced:</span>
-                <span th:text="${#temporals.format(lastSyncedAt, 'd MMM HH:mm')}"></span>
-              </span>
-              <span th:if="${lastSyncedAt == null}"
-                    class="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              <!-- Search trigger -->
+              <button type="button"
+                      data-testid="gh-search-trigger"
+                      class="button-secondary text-sm flex items-center gap-1.5"
+                      onclick="ghSearchOpen()">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0 text-gray-500 dark:text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
                 </svg>
-                <span th:text="#{github-activity.never-synced-hint}">Not synced yet — click Refresh to load your activity</span>
-              </span>
-              <!-- Refresh button with battery-style fill indicator.
-                   A thin bar drains left-to-right as the API rate limit is consumed,
-                   shifting colour from green → amber → red. Disabled when limit is low. -->
-              <div class="flex items-center gap-2">
-                <form th:if="${rateLimitSafe != false}" th:action="@{/github-activity/sync}" method="post">
-                  <input type="hidden" name="date" th:value="${date}"/>
-                  <button type="submit"
-                          class="button-secondary text-sm relative overflow-hidden"
-                          th:title="|${rateLimitRemaining} / ${rateLimitTotal} #{github-activity.rate-limit-requests-remaining}|">
-                    <!-- Draining fill bar at the bottom of the button -->
-                    <span class="pointer-events-none absolute bottom-0 left-0 h-0.5 transition-all duration-700 ease-out rounded-full"
-                          th:style="|width:${rateLimitPercent}%;background-color:${rateLimitFillColor}|">
+                <span class="hidden xs:inline text-gray-500 dark:text-zinc-400">Search...</span>
+                <kbd class="hidden desktop:inline-flex items-center px-1 py-0.5 text-xs font-mono rounded border border-gray-300 dark:border-zinc-600 text-gray-400 dark:text-zinc-500">⌘K</kbd>
+              </button>
+
+              <div th:if="${syncConfigured}" class="ml-auto flex items-center gap-3">
+                <!-- Last synced: full label on sm+, timestamp only on mobile -->
+                <span th:if="${lastSyncedAt != null}"
+                      class="hidden sm:block text-xs text-gray-400 dark:text-zinc-500">
+                  <span th:text="#{github-activity.last-synced}">Last synced:</span>
+                  <span th:text="${#temporals.format(lastSyncedAt, 'd MMM HH:mm')}"></span>
+                </span>
+                <span th:if="${lastSyncedAt != null}"
+                      class="sm:hidden text-xs text-gray-400 dark:text-zinc-500"
+                      th:text="${#temporals.format(lastSyncedAt, 'd MMM HH:mm')}"></span>
+                <!-- Never-synced warning: full text on sm+, hidden on mobile (Refresh button still visible) -->
+                <span th:if="${lastSyncedAt == null}"
+                      class="hidden sm:flex text-xs text-amber-600 dark:text-amber-400 items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                  </svg>
+                  <span th:text="#{github-activity.never-synced-hint}">Not synced yet — click Refresh to load your activity</span>
+                </span>
+                <!-- Refresh button with battery-style fill indicator.
+                     A thin bar drains left-to-right as the API rate limit is consumed,
+                     shifting colour from green → amber → red. Disabled when limit is low. -->
+                <div class="flex items-center gap-2">
+                  <form th:if="${rateLimitSafe != false}" th:action="@{/github-activity/sync}" method="post">
+                    <input type="hidden" name="date" th:value="${date}"/>
+                    <button type="submit"
+                            class="button-secondary text-sm relative overflow-hidden"
+                            th:title="|${rateLimitRemaining} / ${rateLimitTotal} #{github-activity.rate-limit-requests-remaining}|">
+                      <span class="pointer-events-none absolute bottom-0 left-0 h-0.5 transition-all duration-700 ease-out rounded-full"
+                            th:style="|width:${rateLimitPercent}%;background-color:${rateLimitFillColor}|">
+                      </span>
+                      <span class="relative" th:text="#{github-activity.sync-now}">↻ Refresh</span>
+                    </button>
+                  </form>
+                  <th:block th:if="${rateLimitSafe == false}">
+                    <button type="button" disabled
+                            id="gh-rate-limited-btn"
+                            class="button-secondary text-sm opacity-40 cursor-not-allowed relative overflow-hidden"
+                            th:title="#{github-activity.rate-limited}">
+                      <span class="pointer-events-none absolute bottom-0 left-0 h-0.5 rounded-full"
+                            style="width:0%;background-color:#ef4444">
+                      </span>
+                      <span class="relative" th:text="#{github-activity.sync-now}">↻ Refresh</span>
+                    </button>
+                    <span class="text-xs text-amber-500 dark:text-amber-400"
+                          th:attr="data-reset-epoch=${rateLimitResetEpoch}"
+                          id="gh-rate-limit-reset-label">
+                      <span th:if="${rateLimitResetAt != null}"
+                            th:text="#{github-activity.rate-limit-resets-at(${rateLimitResetAt})}">Available at HH:mm</span>
+                      <span th:if="${rateLimitResetAt == null}"
+                            th:text="#{github-activity.rate-limited}">Rate limited</span>
                     </span>
-                    <span class="relative" th:text="#{github-activity.sync-now}">↻ Refresh</span>
-                  </button>
-                </form>
-                <th:block th:if="${rateLimitSafe == false}">
-                  <button type="button" disabled
-                          id="gh-rate-limited-btn"
-                          class="button-secondary text-sm opacity-40 cursor-not-allowed relative overflow-hidden"
-                          th:title="#{github-activity.rate-limited}">
-                    <span class="pointer-events-none absolute bottom-0 left-0 h-0.5 rounded-full"
-                          style="width:0%;background-color:#ef4444">
-                    </span>
-                    <span class="relative" th:text="#{github-activity.sync-now}">↻ Refresh</span>
-                  </button>
-                  <span class="text-xs text-amber-500 dark:text-amber-400"
-                        th:attr="data-reset-epoch=${rateLimitResetEpoch}"
-                        id="gh-rate-limit-reset-label">
-                    <span th:if="${rateLimitResetAt != null}"
-                          th:text="#{github-activity.rate-limit-resets-at(${rateLimitResetAt})}">Available at HH:mm</span>
-                    <span th:if="${rateLimitResetAt == null}"
-                          th:text="#{github-activity.rate-limited}">Rate limited</span>
-                  </span>
-                </th:block>
+                  </th:block>
+                </div>
               </div>
             </div>
           </div>
