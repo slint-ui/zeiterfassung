@@ -57,8 +57,10 @@ class GitActivityAdminController implements HasLaunchpad, HasTimeClock, HasUserS
                       @RequestParam(value = "githubPrivateKey", required = false) String privateKey,
                       @RequestParam(value = "githubOrgName", required = false) String orgName,
                       @RequestParam(value = "githubAppName", required = false) String appName,
+                      @RequestParam(value = "githubClientId", required = false) String clientId,
+                      @RequestParam(value = "githubClientSecret", required = false) String clientSecret,
                       Model model) {
-        platformSettingsService.saveGitHubSettings(appId, privateKey, orgName, appName);
+        platformSettingsService.saveGitHubSettings(appId, privateKey, orgName, appName, clientId, clientSecret);
         gitHubActivityProvider.invalidateTokenCache();
         populateModel(model, true);
         return "settings/git-activity";

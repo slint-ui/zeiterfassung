@@ -127,6 +127,31 @@
           </p>
         </div>
 
+        <div class="flex flex-col gap-1">
+          <label for="githubClientId" class="text-sm font-medium">OAuth client ID</label>
+          <input type="text" id="githubClientId" name="githubClientId"
+                 th:value="${githubSettings.clientId()}"
+                 placeholder="e.g. Iv23li..."
+                 class="border border-gray-300 dark:border-zinc-600 rounded px-3 py-2 text-sm dark:bg-zinc-800 dark:text-zinc-100"
+                 autocomplete="off"/>
+          <p class="text-xs text-gray-500 dark:text-zinc-400">
+            The GitHub App's <strong>Client ID</strong>. Enables the "Verify with GitHub" identity flow on the account page.
+          </p>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label for="githubClientSecret" class="text-sm font-medium">OAuth client secret</label>
+          <input type="password" id="githubClientSecret" name="githubClientSecret"
+                 th:value="${githubSettings.clientSecret()}"
+                 placeholder="••••••••"
+                 class="border border-gray-300 dark:border-zinc-600 rounded px-3 py-2 text-sm dark:bg-zinc-800 dark:text-zinc-100"
+                 autocomplete="off"/>
+          <p class="text-xs text-gray-500 dark:text-zinc-400">
+            Generate under the GitHub App settings → "Client secrets". Also add the callback URL
+            <code class="text-xs bg-gray-100 dark:bg-zinc-700 px-1 rounded">https://&lt;your-domain&gt;/account/github/verify/callback</code> to the app.
+          </p>
+        </div>
+
         <div>
           <button type="submit" class="button-main-green">Save GitHub settings</button>
         </div>
