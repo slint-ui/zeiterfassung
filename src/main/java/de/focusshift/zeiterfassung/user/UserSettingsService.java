@@ -171,6 +171,12 @@ public class UserSettingsService {
         return toUserSettings(userSettingsRepository.save(entity));
     }
 
+    public UserSettings updateReminderDaysBeforeLock(UserIdComposite userIdComposite, int days) {
+        final UserSettingsEntity entity = findOrGetDefault(userIdComposite);
+        entity.setReminderDaysBeforeLock(Math.max(1, days));
+        return toUserSettings(userSettingsRepository.save(entity));
+    }
+
     private static UserSettings toUserSettings(UserSettingsEntity userSettingsEntity) {
         return new UserSettings(
             userSettingsEntity.getTheme(),
@@ -181,7 +187,8 @@ public class UserSettingsService {
             userSettingsEntity.getGithubToken(),
             userSettingsEntity.isNotificationsEnabled(),
             userSettingsEntity.getGithubInstallationId(),
-            userSettingsEntity.isShowStandaloneCommits()
+            userSettingsEntity.isShowStandaloneCommits(),
+            userSettingsEntity.getReminderDaysBeforeLock()
         );
     }
 

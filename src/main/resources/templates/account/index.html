@@ -209,14 +209,29 @@
                   <label class="flex items-center gap-3 cursor-pointer">
                     <span class="checkbox-switch">
                       <input type="checkbox" name="notificationsEnabled"
+                             id="notificationsEnabled"
                              th:checked="${notificationsEnabled}"
-                             class="peer mt-0.5"/>
+                             class="peer mt-0.5"
+                             onchange="document.getElementById('reminderDaysBeforeLock').disabled = !this.checked"/>
                     </span>
                     <div class="flex flex-col">
                       <span class="text-sm font-medium" th:text="#{account.notifications.label}">Email notifications</span>
                       <span class="text-xs text-gray-500 dark:text-zinc-400" th:text="#{account.notifications.hint}">Lock warnings and weekly summary emails</span>
                     </div>
                   </label>
+                  <div class="flex flex-col gap-1 ml-10">
+                    <label for="reminderDaysBeforeLock" class="text-sm font-medium text-gray-700 dark:text-zinc-300">Send reminder (days before lock)</label>
+                    <input
+                      type="number"
+                      id="reminderDaysBeforeLock"
+                      name="reminderDaysBeforeLock"
+                      th:value="${reminderDaysBeforeLock}"
+                      th:disabled="${!notificationsEnabled}"
+                      min="1"
+                      max="30"
+                      class="border border-gray-300 dark:border-zinc-600 rounded px-3 py-2 dark:bg-zinc-800 dark:text-zinc-100 w-24 disabled:opacity-40"
+                    />
+                  </div>
                   <label class="flex items-center gap-3 cursor-pointer">
                     <span class="checkbox-switch">
                       <input type="checkbox" name="showStandaloneCommits"

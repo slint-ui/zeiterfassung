@@ -82,6 +82,7 @@ class AccountController implements HasTimeClock, HasLaunchpad, HasUserSearch {
                              @RequestParam(value = "githubLoginVerified", required = false, defaultValue = "false") boolean verified,
                              @RequestParam(value = "notificationsEnabled", required = false, defaultValue = "false") boolean notificationsEnabled,
                              @RequestParam(value = "showStandaloneCommits", required = false, defaultValue = "false") boolean showStandaloneCommits,
+                             @RequestParam(value = "reminderDaysBeforeLock", required = false, defaultValue = "2") int reminderDaysBeforeLock,
                              @CurrentUser CurrentOidcUser currentOidcUser, Model model) {
         final String trimmed = githubLogin != null ? githubLogin.trim() : null;
         final String toSave = trimmed != null && !trimmed.isEmpty() ? trimmed : null;
@@ -89,6 +90,7 @@ class AccountController implements HasTimeClock, HasLaunchpad, HasUserSearch {
         userSettingsService.updateGithubLogin(currentOidcUser.getUserIdComposite(), toSave, saveVerified);
         userSettingsService.updateNotificationsEnabled(currentOidcUser.getUserIdComposite(), notificationsEnabled);
         userSettingsService.updateShowStandaloneCommits(currentOidcUser.getUserIdComposite(), showStandaloneCommits);
+        userSettingsService.updateReminderDaysBeforeLock(currentOidcUser.getUserIdComposite(), reminderDaysBeforeLock);
         final Long userLocalId = currentOidcUser.getUserIdComposite().localId().value();
         final UserSettings refreshed = userSettingsService.getUserSettings(currentOidcUser.getUserIdComposite());
         populateModel(model, currentOidcUser, refreshed, userLocalId, true);
@@ -185,6 +187,7 @@ class AccountController implements HasTimeClock, HasLaunchpad, HasUserSearch {
         model.addAttribute("githubLoginVerified", userSettings.githubLoginVerified());
         model.addAttribute("notificationsEnabled", userSettings.notificationsEnabled());
         model.addAttribute("showStandaloneCommits", userSettings.showStandaloneCommits());
+        model.addAttribute("reminderDaysBeforeLock", userSettings.reminderDaysBeforeLock());
         // GitHub personal install (customer repos)
         model.addAttribute("githubPersonalInstallConfigured", gh.isPersonalInstallConfigured());
         model.addAttribute("githubInstallationId", userSettings.githubInstallationId().orElse(null));
