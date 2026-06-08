@@ -59,7 +59,7 @@
 
     /* enforce html structure with label + and type search*/
     label + input[type="search"] {
-      font-size: 0.875rem;
+      font-size: 1rem;
       padding: --spacing(2) --spacing(3) --spacing(2) --spacing(10);
       border: none;
       outline: none;
@@ -70,7 +70,7 @@
     /* enforce html structure with + and types */
     input[type="search"] + button[type="submit"] {
       padding: 0 --spacing(3);
-      font-size: 0.875rem;
+      font-size: 1rem;
       color: var(--color-gray-500);
       background-color: var(--color-gray-50);
       border: none;
