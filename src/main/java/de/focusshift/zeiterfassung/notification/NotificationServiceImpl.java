@@ -19,8 +19,6 @@ import org.threeten.extra.YearWeek;
 import org.thymeleaf.ITemplateEngine;
 import org.thymeleaf.context.Context;
 
-import java.util.Optional;
-
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -103,35 +101,10 @@ class NotificationServiceImpl implements NotificationService {
             }
 
             final LocalDate warningDate = today.minusDays(lockSettings.lockTimeEntriesDaysInPast() - daysAhead);
-            final YearWeek weekOfWarning = YearWeek.from(warningDate);
             LOG.info("Checking lock warning for user={} date={}", user.userLocalId().value(), warningDate);
 
-            // Fetch the full day context: planned hours, absences, and existing entries.
-            // This covers working schedule (day of week), public holidays, and approved absences.
-            final Optional<TimeEntryDay> warningDayOpt = timeEntryDayService
-                .getEntryWeekPage(user.userLocalId(), weekOfWarning.getYear(), weekOfWarning.getWeek())
-                .timeEntryWeek()
-                .days()
-                .stream()
-                .filter(d -> d.date().equals(warningDate))
-                .findFirst();
-
-            if (warningDayOpt.isEmpty()) continue;
-            final TimeEntryDay warningDay = warningDayOpt.get();
-
-            // Skip if the user is not expected to work on this day
-            if (warningDay.shouldWorkingHours().durationInMinutes().isZero()) {
-                LOG.debug("Skipping lock warning for user={} on {}: no work planned", user.userLocalId().value(), warningDate);
-                continue;
-            }
-
-            // Skip if the user has an approved absence (vacation, sick leave, etc.)
-            if (!warningDay.absences().isEmpty()) {
-                LOG.debug("Skipping lock warning for user={} on {}: has absence", user.userLocalId().value(), warningDate);
-                continue;
-            }
-
-            if (warningDay.timeEntries().stream().anyMatch(e -> !e.isBreak())) continue;
+            final List<TimeEntryDay> days = timeEntryDayService.getTimeEntryDays(warningDate, warningDate.plusDays(1), user.userLocalId());
+            if (days.isEmpty() || !days.getFirst().overtime().isNegative()) continue;
 
             LOG.info("Sending lock warning to user={} for date={}", user.userLocalId().value(), warningDate);
             sendLockWarningEmail(user, warningDate, daysAhead);
