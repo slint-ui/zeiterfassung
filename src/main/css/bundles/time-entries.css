@@ -703,6 +703,13 @@
     opacity: 1;
   }
 
+  /* Show edit icon at reduced opacity on touch devices where :hover never fires */
+  @media (hover: none) {
+    .time-entry-read-row__edit-icon {
+      opacity: 0.4;
+    }
+  }
+
   /* ── Show/hide toggle: hide edit form by default, show read row ── */
 
   /* !important needed to override Tailwind's `flex` utility class on .time-entry-box */
