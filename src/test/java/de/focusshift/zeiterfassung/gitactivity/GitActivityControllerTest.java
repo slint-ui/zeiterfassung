@@ -710,9 +710,12 @@ class GitActivityControllerTest implements ControllerTest {
     @Test
     void ensureHasActivityIsTrueWhenEventsExist() throws Exception {
         stubCommonDependencies("tronical");
-        final var commit = commitEntity("abc123", "slint-ui/slint", "simon/license", "My commit");
+        // A PR/review/issue event always counts toward hasActivity, independent of the
+        // showStandaloneCommits setting. Commit-only gating is covered by StandaloneCommitsToggle.
+        final var issue = issueEntity("e1", "slint-ui/slint", "11949",
+            "Keys bug", "Opened issue #11949: Keys bug");
         when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-            anyString(), any(), any())).thenReturn(List.of(commit));
+            anyString(), any(), any())).thenReturn(List.of(issue));
 
         perform(get("/github-activity").with(oidcSubject("user-uuid")))
             .andExpect(status().isOk())
