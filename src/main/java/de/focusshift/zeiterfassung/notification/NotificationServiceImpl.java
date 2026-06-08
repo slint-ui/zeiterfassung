@@ -82,23 +82,29 @@ class NotificationServiceImpl implements NotificationService {
     private void sendLockWarningsForTenant() {
         final LockTimeEntriesSettings lockSettings = timeEntryLockService.getLockTimeEntriesSettings();
 
-        if (!lockSettings.lockingIsActive() || lockSettings.lockTimeEntriesDaysInPast() < 3) {
-            LOG.debug("Lock warning skipped: locking inactive or threshold too small ({})", lockSettings.lockTimeEntriesDaysInPast());
+        if (!lockSettings.lockingIsActive()) {
+            LOG.debug("Lock warning skipped: locking inactive");
             return;
         }
 
-        // The day that is (threshold - 2) days ago will be locked in exactly 2 nights
         final LocalDate today = LocalDate.now(clock);
-        final LocalDate warningDate = today.minusDays(lockSettings.lockTimeEntriesDaysInPast() - 2);
-        final YearWeek weekOfWarning = YearWeek.from(warningDate);
-
-        LOG.info("Checking lock warnings for date={}", warningDate);
 
         for (final User user : userManagementService.findAllUsers()) {
             if (user.email() == null || user.email().value().isBlank()) continue;
 
             final UserSettings settings = userSettingsService.getUserSettings(user.userIdComposite());
             if (!settings.notificationsEnabled()) continue;
+
+            final int daysAhead = settings.reminderDaysBeforeLock();
+            if (lockSettings.lockTimeEntriesDaysInPast() <= daysAhead) {
+                LOG.debug("Lock warning skipped for user={}: threshold ({}) too small for {}-day advance warning",
+                    user.userLocalId().value(), lockSettings.lockTimeEntriesDaysInPast(), daysAhead);
+                continue;
+            }
+
+            final LocalDate warningDate = today.minusDays(lockSettings.lockTimeEntriesDaysInPast() - daysAhead);
+            final YearWeek weekOfWarning = YearWeek.from(warningDate);
+            LOG.info("Checking lock warning for user={} date={}", user.userLocalId().value(), warningDate);
 
             // Fetch the full day context: planned hours, absences, and existing entries.
             // This covers working schedule (day of week), public holidays, and approved absences.
@@ -114,7 +120,6 @@ class NotificationServiceImpl implements NotificationService {
             final TimeEntryDay warningDay = warningDayOpt.get();
 
             // Skip if the user is not expected to work on this day
-            // (non-working day of week, public holiday they don't work on)
             if (warningDay.shouldWorkingHours().durationInMinutes().isZero()) {
                 LOG.debug("Skipping lock warning for user={} on {}: no work planned", user.userLocalId().value(), warningDate);
                 continue;
@@ -126,22 +131,21 @@ class NotificationServiceImpl implements NotificationService {
                 continue;
             }
 
-            // Skip if the user already has time entries for the day
             if (warningDay.timeEntries().stream().anyMatch(e -> !e.isBreak())) continue;
 
             LOG.info("Sending lock warning to user={} for date={}", user.userLocalId().value(), warningDate);
-            sendLockWarningEmail(user, warningDate, lockSettings.lockTimeEntriesDaysInPast());
+            sendLockWarningEmail(user, warningDate, daysAhead);
         }
     }
 
-    private void sendLockWarningEmail(User user, LocalDate warningDate, int threshold) {
+    private void sendLockWarningEmail(User user, LocalDate warningDate, int daysUntilLock) {
         final String dayName = warningDate.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH);
 
         final Context ctx = new Context(EMailConstants.DEFAULT_LOCALE);
         ctx.setVariable("name", user.givenName());
         ctx.setVariable("date", DATE_FORMAT.format(warningDate));
         ctx.setVariable("dayName", dayName);
-        ctx.setVariable("daysUntilLock", 2);
+        ctx.setVariable("daysUntilLock", daysUntilLock);
 
         final String body = mailTemplateEngine.process("text/notification-lock-warning", ctx);
         final String subject = "Reminder: No time entries for " + dayName + ", " + DATE_FORMAT.format(warningDate);

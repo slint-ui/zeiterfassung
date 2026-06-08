@@ -19,11 +19,13 @@ public class UserSettings {
     @Nullable
     private final Long githubInstallationId;
     private final boolean showStandaloneCommits;
+    private final int reminderDaysBeforeLock;
 
     UserSettings(Theme theme, Locale locale, Locale localeBrowserSpecific,
                  @Nullable String githubLogin, boolean githubLoginVerified,
                  @Nullable String githubToken, boolean notificationsEnabled,
-                 @Nullable Long githubInstallationId, boolean showStandaloneCommits) {
+                 @Nullable Long githubInstallationId, boolean showStandaloneCommits,
+                 int reminderDaysBeforeLock) {
         this.theme = theme;
         this.locale = locale;
         this.localeBrowserSpecific = localeBrowserSpecific;
@@ -33,6 +35,7 @@ public class UserSettings {
         this.notificationsEnabled = notificationsEnabled;
         this.githubInstallationId = githubInstallationId;
         this.showStandaloneCommits = showStandaloneCommits;
+        this.reminderDaysBeforeLock = reminderDaysBeforeLock;
     }
 
     public Theme theme() {
@@ -73,5 +76,9 @@ public class UserSettings {
 
     public boolean showStandaloneCommits() {
         return showStandaloneCommits;
+    }
+
+    public int reminderDaysBeforeLock() {
+        return reminderDaysBeforeLock;
     }
 }
