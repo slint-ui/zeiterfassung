@@ -35,9 +35,9 @@
               mindestens einmal in der Zeiterfassung angemeldet haben.
             </p>
           </div>
-          <div class="flex-1 flex gap-4">
+          <div class="flex-1 flex flex-col @5xl/main:flex-row gap-4">
             <div
-              class="hidden rounded-xl p-4 border border-gray-100 bg-white dark:border-0 dark:border-t dark:border-zinc-700 dark:bg-zinc-800 @5xl/main:block @5xl/main:w-1/3"
+              class="rounded-xl p-4 border border-gray-100 bg-white dark:border-0 dark:border-t dark:border-zinc-700 dark:bg-zinc-800 @5xl/main:w-1/3"
             >
               <ol id="person-list" class="flex flex-col user-selection-list">
                 <th:block th:each="user : ${users}">
