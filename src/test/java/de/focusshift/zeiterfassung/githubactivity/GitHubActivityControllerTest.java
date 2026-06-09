@@ -83,6 +83,11 @@ class GitHubActivityControllerTest implements ControllerTest {
         when(timeEntryLockService.isLocked(any(LocalDate.class))).thenReturn(false);
         when(syncService.isConfigured()).thenReturn(true);
         when(syncService.getLastSyncTime(anyString())).thenReturn(null);
+        when(syncService.isRateLimitSafe()).thenReturn(true);
+        when(syncService.getRateLimitReset()).thenReturn(java.time.Instant.MIN);
+        when(syncService.getRateLimitPercent()).thenReturn(100);
+        when(syncService.getRateLimitRemaining()).thenReturn(5000);
+        when(syncService.getRateLimitTotal()).thenReturn(5000);
         when(eventRepository.findDistinctRepoAndHeadBranchesByUsernameUpToDate(anyString(), any())).thenReturn(Set.of());
     }
 

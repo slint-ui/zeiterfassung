@@ -154,6 +154,20 @@ class GitHubActivityController implements HasTimeClock, HasLaunchpad, HasUserSea
         model.addAttribute("syncMissingConfig", syncService.missingConfig());
         final Instant lastSync = syncService.getLastSyncTime(login);
         model.addAttribute("lastSyncedAt", lastSync != null ? lastSync.atZone(zone) : null);
+        final boolean rateLimitSafe = syncService.isRateLimitSafe();
+        final int rateLimitPercent = syncService.getRateLimitPercent();
+        model.addAttribute("rateLimitSafe", rateLimitSafe);
+        model.addAttribute("rateLimitPercent", rateLimitPercent);
+        model.addAttribute("rateLimitRemaining", syncService.getRateLimitRemaining());
+        model.addAttribute("rateLimitTotal", syncService.getRateLimitTotal());
+        // Fill colour: green > 60 %, amber > 30 %, red otherwise
+        model.addAttribute("rateLimitFillColor",
+            rateLimitPercent > 60 ? "#22c55e" : rateLimitPercent > 30 ? "#f59e0b" : "#ef4444");
+        if (!rateLimitSafe && syncService.getRateLimitReset().isAfter(Instant.MIN)) {
+            model.addAttribute("rateLimitResetAt",
+                syncService.getRateLimitReset().atZone(zone)
+                    .format(DateTimeFormatter.ofPattern("HH:mm")));
+        }
 
         return "github-activity/index";
     }
