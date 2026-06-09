@@ -12,6 +12,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.hibernate.envers.Audited;
 import org.hibernate.envers.NotAudited;
+import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -60,6 +61,16 @@ public class TimeEntryEntity extends AbstractTenantAwareEntity {
 
     @Column(name = "is_break", nullable = false)
     private boolean isBreak;
+
+    @NotAudited
+    @Column(name = "project_id")
+    @Nullable
+    private Long projectId;
+
+    @NotAudited
+    @Column(name = "activity_type_id")
+    @Nullable
+    private Long activityTypeId;
 
     protected TimeEntryEntity(String tenantId, Long id, String owner, String comment, Instant start, ZoneId startZoneId, Instant end, ZoneId endZoneId, Instant updatedAt, boolean isBreak) {
         super(tenantId);
@@ -152,6 +163,22 @@ public class TimeEntryEntity extends AbstractTenantAwareEntity {
 
     public void setBreak(boolean aBreak) {
         isBreak = aBreak;
+    }
+
+    public @Nullable Long getProjectId() {
+        return projectId;
+    }
+
+    public void setProjectId(@Nullable Long projectId) {
+        this.projectId = projectId;
+    }
+
+    public @Nullable Long getActivityTypeId() {
+        return activityTypeId;
+    }
+
+    public void setActivityTypeId(@Nullable Long activityTypeId) {
+        this.activityTypeId = activityTypeId;
     }
 
     @Override

@@ -1,6 +1,8 @@
 package de.focusshift.zeiterfassung.githubactivity;
 
 import de.focus_shift.launchpad.api.HasLaunchpad;
+import de.focusshift.zeiterfassung.activitytype.ActivityTypeService;
+import de.focusshift.zeiterfassung.project.ProjectService;
 import de.focusshift.zeiterfassung.search.HasUserSearch;
 import de.focusshift.zeiterfassung.search.UserSearchViewHelper;
 import de.focusshift.zeiterfassung.security.CurrentUser;
@@ -46,14 +48,20 @@ class GitHubActivityController implements HasTimeClock, HasLaunchpad, HasUserSea
     private final UserSettingsService userSettingsService;
     private final TimeEntryService timeEntryService;
     private final UserSearchViewHelper userSearchViewHelper;
+    private final ProjectService projectService;
+    private final ActivityTypeService activityTypeService;
     private final RestClient restClient;
 
     GitHubActivityController(UserSettingsService userSettingsService,
                               TimeEntryService timeEntryService,
-                              UserSearchViewHelper userSearchViewHelper) {
+                              UserSearchViewHelper userSearchViewHelper,
+                              ProjectService projectService,
+                              ActivityTypeService activityTypeService) {
         this.userSettingsService = userSettingsService;
         this.timeEntryService = timeEntryService;
         this.userSearchViewHelper = userSearchViewHelper;
+        this.projectService = projectService;
+        this.activityTypeService = activityTypeService;
         this.restClient = RestClient.builder()
             .defaultHeader("User-Agent", "zeiterfassung")
             .defaultHeader("Accept", "application/vnd.github+json")
@@ -102,6 +110,20 @@ class GitHubActivityController implements HasTimeClock, HasLaunchpad, HasUserSea
         model.addAttribute("formAction", "/timeentries");
         model.addAttribute("frameId", frameId != null ? frameId : "inline-form-frame");
 
+        // Load projects / activity types defensively — if the table query fails the inline form still works.
+        try {
+            model.addAttribute("projects", projectService.findAllActive());
+        } catch (Exception e) {
+            java.util.logging.Logger.getLogger(getClass().getName()).warning("Could not load projects: " + e.getMessage());
+            model.addAttribute("projects", java.util.List.of());
+        }
+        try {
+            model.addAttribute("activityTypes", activityTypeService.findAllActive());
+        } catch (Exception e) {
+            java.util.logging.Logger.getLogger(getClass().getName()).warning("Could not load activityTypes: " + e.getMessage());
+            model.addAttribute("activityTypes", java.util.List.of());
+        }
+
         return "github-activity/inline-form";
     }
 
@@ -132,7 +154,7 @@ class GitHubActivityController implements HasTimeClock, HasLaunchpad, HasUserSea
                 start = ZonedDateTime.of(entryDate, LocalTime.NOON, zone);
             }
             final ZonedDateTime end = start.plusMinutes(30);
-            timeEntryService.createTimeEntry(currentUserLocalId, c, start, end, false);
+            timeEntryService.createTimeEntry(currentUserLocalId, c, start, end, false, null, null);
         }
 
         return new RedirectView("/github-activity?date=" + date);
