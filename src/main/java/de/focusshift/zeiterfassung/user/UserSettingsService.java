@@ -17,7 +17,7 @@ import static java.lang.invoke.MethodHandles.lookup;
 import static org.slf4j.LoggerFactory.getLogger;
 
 @Service
-class UserSettingsService {
+public class UserSettingsService {
 
     private static final Logger LOG = getLogger(lookup().lookupClass());
 
@@ -39,7 +39,7 @@ class UserSettingsService {
         return userSettingsRepository.findByTenantUserLocalId(localId).map(UserSettingsEntity::getLocale);
     }
 
-    UserSettings getUserSettings(UserIdComposite userIdComposite) {
+    public UserSettings getUserSettings(UserIdComposite userIdComposite) {
         final UserSettingsEntity entity = findOrGetDefault(userIdComposite);
         return toUserSettings(entity);
     }
@@ -110,11 +110,22 @@ class UserSettingsService {
         return userSettingsEntity;
     }
 
+    public UserSettings updateGithubLogin(UserIdComposite userIdComposite, @Nullable String githubLogin, boolean verified) {
+        final UserSettingsEntity entity = findOrGetDefault(userIdComposite);
+        entity.setGithubLogin(githubLogin);
+        entity.setGithubLoginVerified(verified);
+        final UserSettingsEntity persistedEntity = userSettingsRepository.save(entity);
+        LOG.info("Updated github login for user {} verified={}", userIdComposite.localId().value(), verified);
+        return toUserSettings(persistedEntity);
+    }
+
     private static UserSettings toUserSettings(UserSettingsEntity userSettingsEntity) {
         return new UserSettings(
             userSettingsEntity.getTheme(),
             userSettingsEntity.getLocale(),
-            userSettingsEntity.getLocaleBrowserSpecific()
+            userSettingsEntity.getLocaleBrowserSpecific(),
+            userSettingsEntity.getGithubLogin(),
+            userSettingsEntity.isGithubLoginVerified()
         );
     }
 
