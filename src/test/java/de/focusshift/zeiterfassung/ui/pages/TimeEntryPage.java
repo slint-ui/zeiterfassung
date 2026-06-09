@@ -51,6 +51,14 @@ public class TimeEntryPage {
         return page.locator("css=[data-testid=input-time-entry-comment][value='%s']".formatted(value));
     }
 
+    /**
+     * Expands the read-row of the existing entry whose inline form contains the given child,
+     * revealing the (otherwise collapsed) edit form so its inputs become visible and editable.
+     */
+    public void expandEntryForEditing(Locator childLocator) {
+        timeEntryEditContainer(childLocator).locator("[data-read-row]").click();
+    }
+
     public void submitTimeEntryHaving(Locator childLocator) {
         page.waitForResponse(Response::ok, () -> {
             timeEntryEditContainer(childLocator).getByTestId("submit-time-entry").click();

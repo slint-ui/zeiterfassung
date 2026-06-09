@@ -115,6 +115,7 @@ class TimeEntryUIIT {
         timeEntryPage.submitNewTimeEntryButton().click();
 
         final Locator commentInputLocator = timeEntryPage.getCommentInput("comment");
+        timeEntryPage.expandEntryForEditing(commentInputLocator); // compact inline-edit table: reveal the row's collapsed edit form
         commentInputLocator.fill("comment updated");
         timeEntryPage.submitTimeEntryHaving(commentInputLocator);
 
