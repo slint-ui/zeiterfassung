@@ -16,5 +16,7 @@ public record ActivityAnchor(
     String prStatus,         // PRs: "Open", "Merged", "Closed"
     String reviewOutcome,    // Reviews: "Approved", "Changes requested", "Commented"
     String issueAction,      // Issues: "Opened", "Closed", "Commented", "Updated"
-    boolean logged           // true when all events in this anchor have been logged
+    boolean logged,          // true when all events in this anchor have been logged
+    String platform,         // GITHUB or BITBUCKET — drives the provider badge
+    String anchorUrl         // platform-aware link to the PR/issue/repo (github.com vs bitbucket.org)
 ) {}

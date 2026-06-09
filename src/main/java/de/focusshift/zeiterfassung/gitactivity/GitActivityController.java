@@ -103,19 +103,21 @@ class GitActivityController implements HasTimeClock, HasLaunchpad, HasUserSearch
         }
 
         final String login = userSettings.githubLogin().get();
+        // multi-provider: aggregate activity for ALL the user's linked identities (GitHub login + Bitbucket account id)
+        final Set<String> usernames = resolvePlatformUsernames(currentUser);
         final ZoneId zone = userSettingsProvider.zoneId();
 
         final Instant dayStart = selectedDate.atStartOfDay(zone).toInstant();
         final Instant dayEnd = selectedDate.plusDays(1).atStartOfDay(zone).toInstant();
         final List<GitActivityRawEventEntity> rawEvents =
-            eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(login, dayStart, dayEnd);
+            eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(usernames, dayStart, dayEnd);
 
         final Set<String> prAnchorIds = rawEvents.stream()
             .filter(e -> "PR".equals(e.getAnchorType()) && e.getAnchorId() != null)
             .map(GitActivityRawEventEntity::getAnchorId)
             .collect(Collectors.toSet());
         final Map<String, Instant> earliestPrTimestamps = prAnchorIds.isEmpty() ? Map.of()
-            : eventRepository.findEarliestPrTimestamps(login, prAnchorIds).stream()
+            : eventRepository.findEarliestPrTimestamps(usernames, prAnchorIds).stream()
                 .collect(Collectors.toMap(
                     row -> (String) row[0] + "|" + (String) row[1],
                     row -> toInstant(row[2])));
@@ -381,7 +383,9 @@ class GitActivityController implements HasTimeClock, HasLaunchpad, HasUserSearch
                 prStatus,
                 reviewOutcome,
                 issueAction,
-                anchorLogged
+                anchorLogged,
+                first.getPlatform(),
+                buildAnchorUrl(first.getPlatform(), first.getAnchorType(), first.getRepoName(), first.getAnchorId())
             );
         }).toList();
     }
@@ -420,10 +424,26 @@ class GitActivityController implements HasTimeClock, HasLaunchpad, HasUserSearch
                     derivePrStatus(List.of(pr)),
                     null,
                     null,
-                    repoAnchor.logged()
+                    repoAnchor.logged(),
+                    pr.getPlatform(),
+                    buildAnchorUrl(pr.getPlatform(), "PR", pr.getRepoName(), pr.getAnchorId())
                 );
             })
             .stream();
+    }
+
+    /** Builds the platform-aware web URL for an anchor (github.com vs bitbucket.org; the PR path segment differs). */
+    private static String buildAnchorUrl(String platform, String anchorType, String repoName, String anchorId) {
+        final boolean bitbucket = "BITBUCKET".equals(platform);
+        final String base = bitbucket ? "https://bitbucket.org/" : "https://github.com/";
+        if (anchorId == null || anchorId.isBlank()) {
+            return base + repoName;
+        }
+        return switch (anchorType == null ? "" : anchorType) {
+            case "PR" -> base + repoName + (bitbucket ? "/pull-requests/" : "/pull/") + anchorId;
+            case "ISSUE" -> base + repoName + "/issues/" + anchorId;
+            default -> base + repoName;
+        };
     }
 
     private static String resolveAnchorTitle(GitActivityRawEventEntity first, List<GitActivityRawEventEntity> group) {
