@@ -362,6 +362,57 @@ class GitActivityControllerTest implements ControllerTest {
         }
     }
 
+    // ── identity gate: Bitbucket-only users (no verified GitHub login) ─────────
+
+    @Nested
+    class IdentityGate {
+
+        @SuppressWarnings("unchecked")
+        @Test
+        void ensureBitbucketOnlyUserSeesActivityWithoutVerifiedGithubLogin() throws Exception {
+            stubCommonDependencies("tronical");
+            final UserSettings bbSettings = mock(UserSettings.class);
+            when(bbSettings.githubLoginVerified()).thenReturn(false);
+            when(bbSettings.githubLogin()).thenReturn(java.util.Optional.empty());
+            when(bbSettings.showStandaloneCommits()).thenReturn(false);
+            when(userSettingsService.getUserSettings(any())).thenReturn(bbSettings);
+            final GitOAuthTokenEntity token = mock(GitOAuthTokenEntity.class);
+            when(token.getPlatformAccountId()).thenReturn("bb-acct-123");
+            when(oAuthTokenRepository.findByUserLocalId(any())).thenReturn(List.of(token));
+
+            final var bbPr = prEntity("e1", "workspace/repo", "5", "Add API", "Opened PR #5: Add API");
+            bbPr.setPlatform("BITBUCKET");
+            bbPr.setPlatformUsername("bb-acct-123");
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(bbPr));
+
+            final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
+                .andExpect(status().isOk())
+                .andExpect(view().name("github-activity/index"))
+                .andReturn();
+
+            final List<ActivityAnchor> prAnchors = (List<ActivityAnchor>)
+                result.getModelAndView().getModel().get("prAnchors");
+            assertThat(prAnchors).hasSize(1);
+            assertThat(prAnchors.get(0).platform()).isEqualTo("BITBUCKET");
+            assertThat(prAnchors.get(0).anchorUrl()).isEqualTo("https://bitbucket.org/workspace/repo/pull-requests/5");
+        }
+
+        @Test
+        void ensureNoLinkedIdentityShowsTheLinkAccountPage() throws Exception {
+            stubCommonDependencies("tronical");
+            final UserSettings noneSettings = mock(UserSettings.class);
+            when(noneSettings.githubLoginVerified()).thenReturn(false);
+            when(noneSettings.githubLogin()).thenReturn(java.util.Optional.empty());
+            when(userSettingsService.getUserSettings(any())).thenReturn(noneSettings);
+            when(oAuthTokenRepository.findByUserLocalId(any())).thenReturn(List.of());
+
+            perform(get("/github-activity").with(oidcSubject("user-uuid")))
+                .andExpect(status().isOk())
+                .andExpect(view().name("github-activity/no-github-login"));
+        }
+    }
+
     // ── review outcome derivation ─────────────────────────────────────────────
 
     @Nested

@@ -94,18 +94,23 @@ class GitActivityController implements HasTimeClock, HasLaunchpad, HasUserSearch
                  @CurrentUser CurrentOidcUser currentUser,
                  Model model) {
 
-        final LocalDate selectedDate = date != null ? date : LocalDate.now();
         final UserSettings userSettings = userSettingsService.getUserSettings(currentUser.getUserIdComposite());
 
-        if (!userSettings.githubLoginVerified() || userSettings.githubLogin().isEmpty()) {
+        // multi-provider: aggregate activity for ALL the user's linked identities
+        // (verified GitHub login + Bitbucket OAuth account ids)
+        final Set<String> usernames = resolvePlatformUsernames(currentUser);
+        if (usernames.isEmpty()) {
             model.addAttribute("accountUrl", "/account");
             return "github-activity/no-github-login";
         }
 
-        final String login = userSettings.githubLogin().get();
-        // multi-provider: aggregate activity for ALL the user's linked identities (GitHub login + Bitbucket account id)
-        final Set<String> usernames = resolvePlatformUsernames(currentUser);
         final ZoneId zone = userSettingsProvider.zoneId();
+        final LocalDate selectedDate = date != null ? date : LocalDate.now(zone);
+
+        // GitHub-only features (synthetic-PR reconstruction, sync status, auto-sync) need the verified GitHub
+        // login; it is absent for Bitbucket-only users.
+        final java.util.Optional<String> githubLogin = userSettings.githubLoginVerified()
+            ? userSettings.githubLogin() : java.util.Optional.empty();
 
         final Instant dayStart = selectedDate.atStartOfDay(zone).toInstant();
         final Instant dayEnd = selectedDate.plusDays(1).atStartOfDay(zone).toInstant();
@@ -122,7 +127,7 @@ class GitActivityController implements HasTimeClock, HasLaunchpad, HasUserSearch
                     row -> (String) row[0] + "|" + (String) row[1],
                     row -> toInstant(row[2])));
 
-        final List<ActivityAnchor> allAnchors = toAnchors(rawEvents, zone, login, selectedDate, earliestPrTimestamps);
+        final List<ActivityAnchor> allAnchors = toAnchors(rawEvents, zone, selectedDate, earliestPrTimestamps);
         final Long userLocalId = currentUser.getUserIdComposite().localId().value();
 
         final List<ActivityAnchor> prAnchors = allAnchors.stream()
@@ -135,8 +140,8 @@ class GitActivityController implements HasTimeClock, HasLaunchpad, HasUserSearch
             .filter(a -> "ISSUE".equals(a.anchorType()))
             .toList();
 
-        final Set<String> prHeadKeys = eventRepository
-            .findDistinctRepoAndHeadBranchesByUsernameUpToDate(login, dayEnd);
+        final Set<String> prHeadKeys = githubLogin.isEmpty() ? Set.of()
+            : eventRepository.findDistinctRepoAndHeadBranchesByUsernameUpToDate(githubLogin.get(), dayEnd);
 
         final List<ActivityAnchor> standaloneAnchors = allAnchors.stream()
             .filter(a -> "REPO".equals(a.anchorType()))
@@ -148,12 +153,12 @@ class GitActivityController implements HasTimeClock, HasLaunchpad, HasUserSearch
         final Set<String> existingPrKeys = prAnchors.stream()
             .map(a -> a.repoName() + "|" + a.anchorId())
             .collect(java.util.stream.Collectors.toSet());
-        final List<ActivityAnchor> syntheticPrAnchors = allAnchors.stream()
+        final List<ActivityAnchor> syntheticPrAnchors = githubLogin.isEmpty() ? List.of() : allAnchors.stream()
             .filter(a -> "REPO".equals(a.anchorType()))
             .filter(a -> a.anchorId() != null && prHeadKeys.contains(a.repoName() + "|" + a.anchorId()))
             .filter(a -> a.events().stream().anyMatch(
                 e -> !e.summary().startsWith("Created ") && !e.summary().startsWith("Deleted ")))
-            .flatMap(repoAnchor -> buildSyntheticPrAnchor(repoAnchor, existingPrKeys, login, zone, selectedDate, earliestPrTimestamps))
+            .flatMap(repoAnchor -> buildSyntheticPrAnchor(repoAnchor, existingPrKeys, githubLogin.get(), zone, selectedDate, earliestPrTimestamps))
             .toList();
         final List<ActivityAnchor> allPrAnchors = Stream.concat(
             prAnchors.stream(), syntheticPrAnchors.stream()).toList();
@@ -177,7 +182,7 @@ class GitActivityController implements HasTimeClock, HasLaunchpad, HasUserSearch
         final boolean syncConfigured = gitHubProvider.isConfigured();
         model.addAttribute("syncConfigured", syncConfigured);
         model.addAttribute("syncMissingConfig", gitHubProvider.missingConfig());
-        final Instant lastSync = gitHubProvider.getLastSyncTime(login);
+        final Instant lastSync = githubLogin.isPresent() ? gitHubProvider.getLastSyncTime(githubLogin.get()) : null;
         model.addAttribute("lastSyncedAt", lastSync != null ? lastSync.atZone(zone) : null);
         final boolean rateLimitSafe = gitHubProvider.isRateLimitSafe();
         final int rateLimitPercent = gitHubProvider.getRateLimitPercent();
@@ -211,7 +216,7 @@ class GitActivityController implements HasTimeClock, HasLaunchpad, HasUserSearch
 
         final boolean isToday = selectedDate.equals(LocalDate.now(zone));
         final LocalDate lastSyncDay = lastSync != null ? lastSync.atZone(zone).toLocalDate() : null;
-        final boolean autoSync = syncConfigured && rateLimitSafe && isToday && !isLocked
+        final boolean autoSync = githubLogin.isPresent() && syncConfigured && rateLimitSafe && isToday && !isLocked
             && (lastSyncDay == null || lastSyncDay.isBefore(selectedDate));
         model.addAttribute("autoSync", autoSync);
 
@@ -301,7 +306,7 @@ class GitActivityController implements HasTimeClock, HasLaunchpad, HasUserSearch
     }
 
     private List<ActivityAnchor> toAnchors(List<GitActivityRawEventEntity> entities, ZoneId zone,
-                                           String login, LocalDate selectedDate,
+                                           LocalDate selectedDate,
                                            Map<String, Instant> earliestPrTimestamps) {
         if (entities.isEmpty()) return List.of();
 
@@ -526,8 +531,10 @@ class GitActivityController implements HasTimeClock, HasLaunchpad, HasUserSearch
     /** Returns all platform usernames owned by the current user (GitHub login + OAuth account IDs). */
     private Set<String> resolvePlatformUsernames(CurrentOidcUser currentUser) {
         final Set<String> usernames = new java.util.HashSet<>();
-        userSettingsService.getUserSettings(currentUser.getUserIdComposite())
-            .githubLogin().ifPresent(usernames::add);
+        final UserSettings settings = userSettingsService.getUserSettings(currentUser.getUserIdComposite());
+        if (settings.githubLoginVerified()) {
+            settings.githubLogin().ifPresent(usernames::add);
+        }
         final Long userLocalId = currentUser.getUserIdComposite().localId().value();
         oAuthTokenRepository.findByUserLocalId(userLocalId)
             .forEach(t -> usernames.add(t.getPlatformAccountId()));
