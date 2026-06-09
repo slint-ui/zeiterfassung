@@ -62,6 +62,9 @@ public class UserSettingsEntity extends AbstractTenantAwareEntity {
     @Column(name = "show_standalone_commits", nullable = false)
     private boolean showStandaloneCommits = false;
 
+    @Column(name = "reminder_days_before_lock", nullable = false)
+    private int reminderDaysBeforeLock = 2;
+
     protected UserSettingsEntity() {
         super(null);
     }
@@ -152,6 +155,14 @@ public class UserSettingsEntity extends AbstractTenantAwareEntity {
 
     public void setShowStandaloneCommits(boolean showStandaloneCommits) {
         this.showStandaloneCommits = showStandaloneCommits;
+    }
+
+    public int getReminderDaysBeforeLock() {
+        return reminderDaysBeforeLock;
+    }
+
+    public void setReminderDaysBeforeLock(int reminderDaysBeforeLock) {
+        this.reminderDaysBeforeLock = reminderDaysBeforeLock;
     }
 
     @Override
