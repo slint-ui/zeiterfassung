@@ -218,4 +218,13 @@ body {
       cursor: pointer;
     }
   }
+
+  /* Prevent iOS Safari from zooming on input focus (requires font-size >= 16px) */
+  @media screen and (-webkit-min-device-pixel-ratio: 0) {
+    select,
+    textarea,
+    input:not([type="radio"], [type="checkbox"]) {
+      font-size: 1rem;
+    }
+  }
 }

@@ -61,4 +61,6 @@
   <include relativeToChangelogFile="true" file="changelog-3.3.4-slint-remove-old-format-commits.xml"/>
   <include relativeToChangelogFile="true" file="changelog-3.3.5-slint-show-standalone-commits.xml"/>
   <include relativeToChangelogFile="true" file="changelog-3.4.0-slint-reminder-days-before-lock.xml"/>
+  <include relativeToChangelogFile="true" file="changelog-3.4.1-slint-add-github-oauth-client.xml"/>
+  <include relativeToChangelogFile="true" file="changelog-3.4.2-slint-user-settings-unique-verified-github-login.xml"/>
 </databaseChangeLog>

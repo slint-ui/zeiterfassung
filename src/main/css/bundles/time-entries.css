@@ -118,6 +118,11 @@
     grid-column-start: 6;
   }
 
+  .time-entry-cell__project,
+  .time-entry-cell__activity-type {
+    grid-column: 1 / -1;
+  }
+
   @variant xs {
     .time-entry-cell-container {
       display: grid;
@@ -148,6 +153,11 @@
     .time-entry-cell__break {
       grid-row-start: 2;
       grid-column-start: 7;
+    }
+
+    .time-entry-cell__project,
+    .time-entry-cell__activity-type {
+      grid-column: 1 / -1;
     }
   }
 
@@ -192,6 +202,11 @@
       grid-row-start: 1;
       grid-column-start: 6;
     }
+
+    .time-entry-cell__project,
+    .time-entry-cell__activity-type {
+      grid-column: 1 / span 5;
+    }
   }
 
   @variant lg {
@@ -226,6 +241,11 @@
     .time-entry-cell__break {
       grid-row-start: 1;
       grid-column: 5 / span 1;
+    }
+
+    .time-entry-cell__project,
+    .time-entry-cell__activity-type {
+      grid-column: 1 / -1;
     }
   }
 
@@ -701,6 +721,13 @@
 
   .time-entry-read-row:hover .time-entry-read-row__edit-icon {
     opacity: 1;
+  }
+
+  /* Show edit icon at reduced opacity on touch devices where :hover never fires */
+  @media (hover: none) {
+    .time-entry-read-row__edit-icon {
+      opacity: 0.4;
+    }
   }
 
   /* ── Show/hide toggle: hide edit form by default, show read row ── */

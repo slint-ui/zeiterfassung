@@ -310,7 +310,7 @@ class GitHubActivityUIIT {
             loginPage.login(LoginPage.Credentials.USER);
             activityPage.navigate();
 
-            assertThat(activityPage.prSection().getByText("Merged")).isVisible();
+            assertThat(activityPage.prSection().locator("table").getByText("Merged")).isVisible();
         }
     }
 
@@ -356,7 +356,7 @@ class GitHubActivityUIIT {
             loginPage.login(LoginPage.Credentials.USER);
             activityPage.navigate();
 
-            assertThat(activityPage.reviewsSection().getByText("✓ Approved")).isVisible();
+            assertThat(activityPage.reviewsSection().locator("table").getByText("✓ Approved")).isVisible();
         }
     }
 

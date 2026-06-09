@@ -31,93 +31,105 @@
           </p>
 
           <!-- Date navigation -->
-          <div class="flex items-center gap-4 mb-6">
-            <a th:href="@{/github-activity(date=${prevDate})}" class="button-secondary">&#9664;</a>
+          <div class="mb-6 flex flex-col sm:flex-row sm:items-center gap-y-2 sm:gap-x-4">
 
-            <!-- Clickable date — opens Duet date picker -->
-            <div class="relative flex items-center gap-1.5">
-              <button type="button" id="gh-date-btn"
-                      class="font-medium hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1.5"
-                      th:title="#{github-activity.pick-date}">
-                <span th:text="${#temporals.format(date, 'EEEE, d MMMM yyyy')}">Monday, 2 June 2026</span>
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0 text-gray-400 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-              </button>
-              <!-- Duet picker — input-wrapper hidden via JS, only calendar popup is shown -->
-              <div id="gh-date-picker-anchor" class="absolute top-full left-0 z-50">
-                <duet-date-picker id="gh-date-picker"
-                                  th:value="${#temporals.format(date, 'yyyy-MM-dd')}">
-                </duet-date-picker>
+            <!-- Row 1 on mobile / leading items on sm+: ◀ date ▶ -->
+            <div class="flex items-center gap-3">
+              <a th:href="@{/github-activity(date=${prevDate})}" class="button-secondary shrink-0">&#9664;</a>
+
+              <!-- Clickable date — opens Duet date picker -->
+              <div class="flex-1 sm:flex-none relative flex items-center justify-center sm:justify-start gap-1.5">
+                <button type="button" id="gh-date-btn"
+                        class="font-medium hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1.5"
+                        th:title="#{github-activity.pick-date}">
+                  <span th:text="${#temporals.format(date, 'EEEE, d MMMM yyyy')}">Monday, 2 June 2026</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0 text-gray-400 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                </button>
+                <!-- Duet picker — input-wrapper hidden via JS, only calendar popup is shown -->
+                <div id="gh-date-picker-anchor" class="absolute top-full left-0 z-50">
+                  <duet-date-picker id="gh-date-picker"
+                                    th:value="${#temporals.format(date, 'yyyy-MM-dd')}">
+                  </duet-date-picker>
+                </div>
               </div>
+
+              <a th:href="@{/github-activity(date=${nextDate})}" class="button-secondary shrink-0">&#9654;</a>
             </div>
 
-            <a th:href="@{/github-activity(date=${nextDate})}" class="button-secondary">&#9654;</a>
+            <!-- Row 2 on mobile / trailing items on sm+: Today · Search · sync status · Refresh -->
+            <div class="flex items-center gap-3 sm:flex-1">
+              <!-- Today button — hidden when already viewing today -->
+              <a th:if="${!isToday}" th:href="@{/github-activity}"
+                 class="button-secondary text-xs"
+                 th:text="#{github-activity.today}">Today</a>
 
-            <!-- Today button — hidden when already viewing today -->
-            <a th:if="${!isToday}" th:href="@{/github-activity}"
-               class="button-secondary text-xs"
-               th:text="#{github-activity.today}">Today</a>
-
-            <!-- Search trigger -->
-            <button type="button"
-                    data-testid="gh-search-trigger"
-                    class="button-secondary text-sm flex items-center gap-1.5"
-                    onclick="ghSearchOpen()">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0 text-gray-500 dark:text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
-              </svg>
-              <span class="hidden xs:inline text-gray-500 dark:text-zinc-400">Search...</span>
-              <kbd class="hidden desktop:inline-flex items-center px-1 py-0.5 text-xs font-mono rounded border border-gray-300 dark:border-zinc-600 text-gray-400 dark:text-zinc-500">⌘K</kbd>
-            </button>
-            <div th:if="${syncConfigured}" class="ml-auto flex items-center gap-3">
-              <span th:if="${lastSyncedAt != null}"
-                    class="text-xs text-gray-400 dark:text-zinc-500">
-                <span th:text="#{github-activity.last-synced}">Last synced:</span>
-                <span th:text="${#temporals.format(lastSyncedAt, 'd MMM HH:mm')}"></span>
-              </span>
-              <span th:if="${lastSyncedAt == null}"
-                    class="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              <!-- Search trigger -->
+              <button type="button"
+                      data-testid="gh-search-trigger"
+                      class="button-secondary text-sm flex items-center gap-1.5"
+                      onclick="ghSearchOpen()">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0 text-gray-500 dark:text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
                 </svg>
-                <span th:text="#{github-activity.never-synced-hint}">Not synced yet — click Refresh to load your activity</span>
-              </span>
-              <!-- Refresh button with battery-style fill indicator.
-                   A thin bar drains left-to-right as the API rate limit is consumed,
-                   shifting colour from green → amber → red. Disabled when limit is low. -->
-              <div class="flex items-center gap-2">
-                <form th:if="${rateLimitSafe != false}" th:action="@{/github-activity/sync}" method="post">
-                  <input type="hidden" name="date" th:value="${date}"/>
-                  <button type="submit"
-                          class="button-secondary text-sm relative overflow-hidden"
-                          th:title="|${rateLimitRemaining} / ${rateLimitTotal} #{github-activity.rate-limit-requests-remaining}|">
-                    <!-- Draining fill bar at the bottom of the button -->
-                    <span class="pointer-events-none absolute bottom-0 left-0 h-0.5 transition-all duration-700 ease-out rounded-full"
-                          th:style="|width:${rateLimitPercent}%;background-color:${rateLimitFillColor}|">
+                <span class="hidden xs:inline text-gray-500 dark:text-zinc-400">Search...</span>
+                <kbd class="hidden desktop:inline-flex items-center px-1 py-0.5 text-xs font-mono rounded border border-gray-300 dark:border-zinc-600 text-gray-400 dark:text-zinc-500">⌘K</kbd>
+              </button>
+
+              <div th:if="${syncConfigured}" class="ml-auto flex items-center gap-3">
+                <!-- Last synced: full label on sm+, timestamp only on mobile -->
+                <span th:if="${lastSyncedAt != null}"
+                      class="hidden sm:block text-xs text-gray-400 dark:text-zinc-500">
+                  <span th:text="#{github-activity.last-synced}">Last synced:</span>
+                  <span th:text="${#temporals.format(lastSyncedAt, 'd MMM HH:mm')}"></span>
+                </span>
+                <span th:if="${lastSyncedAt != null}"
+                      class="sm:hidden text-xs text-gray-400 dark:text-zinc-500"
+                      th:text="${#temporals.format(lastSyncedAt, 'd MMM HH:mm')}"></span>
+                <!-- Never-synced warning: full text on sm+, hidden on mobile (Refresh button still visible) -->
+                <span th:if="${lastSyncedAt == null}"
+                      class="hidden sm:flex text-xs text-amber-600 dark:text-amber-400 items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                  </svg>
+                  <span th:text="#{github-activity.never-synced-hint}">Not synced yet — click Refresh to load your activity</span>
+                </span>
+                <!-- Refresh button with battery-style fill indicator.
+                     A thin bar drains left-to-right as the API rate limit is consumed,
+                     shifting colour from green → amber → red. Disabled when limit is low. -->
+                <div class="flex items-center gap-2">
+                  <form th:if="${rateLimitSafe != false}" th:action="@{/github-activity/sync}" method="post">
+                    <input type="hidden" name="date" th:value="${date}"/>
+                    <button type="submit"
+                            class="button-secondary text-sm relative overflow-hidden"
+                            th:title="|${rateLimitRemaining} / ${rateLimitTotal} #{github-activity.rate-limit-requests-remaining}|">
+                      <span class="pointer-events-none absolute bottom-0 left-0 h-0.5 transition-all duration-700 ease-out rounded-full"
+                            th:style="|width:${rateLimitPercent}%;background-color:${rateLimitFillColor}|">
+                      </span>
+                      <span class="relative" th:text="#{github-activity.sync-now}">↻ Refresh</span>
+                    </button>
+                  </form>
+                  <th:block th:if="${rateLimitSafe == false}">
+                    <button type="button" disabled
+                            id="gh-rate-limited-btn"
+                            class="button-secondary text-sm opacity-40 cursor-not-allowed relative overflow-hidden"
+                            th:title="#{github-activity.rate-limited}">
+                      <span class="pointer-events-none absolute bottom-0 left-0 h-0.5 rounded-full"
+                            style="width:0%;background-color:#ef4444">
+                      </span>
+                      <span class="relative" th:text="#{github-activity.sync-now}">↻ Refresh</span>
+                    </button>
+                    <span class="text-xs text-amber-500 dark:text-amber-400"
+                          th:attr="data-reset-epoch=${rateLimitResetEpoch}"
+                          id="gh-rate-limit-reset-label">
+                      <span th:if="${rateLimitResetAt != null}"
+                            th:text="#{github-activity.rate-limit-resets-at(${rateLimitResetAt})}">Available at HH:mm</span>
+                      <span th:if="${rateLimitResetAt == null}"
+                            th:text="#{github-activity.rate-limited}">Rate limited</span>
                     </span>
-                    <span class="relative" th:text="#{github-activity.sync-now}">↻ Refresh</span>
-                  </button>
-                </form>
-                <th:block th:if="${rateLimitSafe == false}">
-                  <button type="button" disabled
-                          id="gh-rate-limited-btn"
-                          class="button-secondary text-sm opacity-40 cursor-not-allowed relative overflow-hidden"
-                          th:title="#{github-activity.rate-limited}">
-                    <span class="pointer-events-none absolute bottom-0 left-0 h-0.5 rounded-full"
-                          style="width:0%;background-color:#ef4444">
-                    </span>
-                    <span class="relative" th:text="#{github-activity.sync-now}">↻ Refresh</span>
-                  </button>
-                  <span class="text-xs text-amber-500 dark:text-amber-400"
-                        th:attr="data-reset-epoch=${rateLimitResetEpoch}"
-                        id="gh-rate-limit-reset-label">
-                    <span th:if="${rateLimitResetAt != null}"
-                          th:text="#{github-activity.rate-limit-resets-at(${rateLimitResetAt})}">Available at HH:mm</span>
-                    <span th:if="${rateLimitResetAt == null}"
-                          th:text="#{github-activity.rate-limited}">Rate limited</span>
-                  </span>
-                </th:block>
+                  </th:block>
+                </div>
               </div>
             </div>
           </div>
@@ -173,279 +185,464 @@
           <!-- ── Pull Requests ──────────────────────────────────────────── -->
           <section th:if="${!#lists.isEmpty(prAnchors)}" data-testid="github-activity-pr-section" class="mb-8">
             <h2 class="text-base font-semibold text-gray-700 dark:text-zinc-200 mb-2">Pull Requests</h2>
-            <div class="border border-gray-200 dark:border-zinc-700 rounded-lg overflow-hidden">
-              <table class="w-full text-sm">
-                <thead class="bg-gray-50 dark:bg-zinc-800 text-xs text-gray-500 dark:text-zinc-400 uppercase tracking-wide">
-                  <tr>
-                    <th class="px-4 py-2 text-left">Repo</th>
-                    <th class="px-4 py-2 text-left">PR</th>
-                    <th class="px-4 py-2 text-left">Title</th>
-                    <th class="px-4 py-2 text-left">Opened</th>
-                    <th class="px-4 py-2 text-left">Status</th>
-                    <th class="px-4 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-zinc-800">
-                  <th:block th:each="anchor, stat : ${prAnchors}">
-                    <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800/50"
-                        th:attr="data-gh-type='PR',data-gh-repo=${anchor.repoName()},data-gh-title=${anchor.anchorTitle() ?: ''},data-gh-badge=${anchor.anchorId() ?: ''},data-gh-meta=${anchor.prStatus() ?: ''},data-gh-window=${anchor.windowStart() + (anchor.windowEnd() != null ? '–' + anchor.windowEnd() : '')},data-gh-logged=${anchor.logged()},data-gh-log-id=${'pr-log-it-' + stat.index}">
-                      <td class="px-4 py-3 font-mono text-xs text-gray-500 dark:text-zinc-400 whitespace-nowrap" th:text="${anchor.repoName()}"></td>
-                      <td class="px-4 py-3 whitespace-nowrap">
-                        <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
-                           target="_blank" rel="noopener"
-                           class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-800">
-                          #<span th:text="${anchor.anchorId()}"></span>
-                        </a>
-                      </td>
-                      <td class="px-4 py-3">
-                        <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
-                           target="_blank" rel="noopener"
-                           th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
-                           class="text-gray-800 dark:text-zinc-100 hover:underline"
-                           th:text="${anchor.anchorTitle()}"></a>
-                        <span th:if="${#strings.isEmpty(anchor.anchorTitle())}"
-                              class="text-gray-300 dark:text-zinc-600 text-xs italic">No title</span>
-                      </td>
-                      <td class="px-4 py-3 text-xs text-gray-400 dark:text-zinc-500 whitespace-nowrap">
-                        <span th:if="${anchor.openedDate() != null}" th:text="${anchor.openedDate()}"></span>
-                        <span th:if="${anchor.openedDate() == null}" class="text-gray-300 dark:text-zinc-600">Today</span>
-                      </td>
-                      <td class="px-4 py-3 whitespace-nowrap">
-                        <span th:if="${anchor.prStatus() == 'Merged'}"
-                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
-                          Merged
-                        </span>
-                        <span th:if="${anchor.prStatus() == 'Closed'}"
-                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                          Closed
-                        </span>
-                        <span th:if="${anchor.prStatus() == 'Open'}"
-                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                          Open
-                        </span>
-                      </td>
-                      <td class="px-4 py-3 text-right whitespace-nowrap">
-                        <th:block th:if="${!isLocked}">
-                          <div class="flex items-center justify-end gap-2">
-                            <span class="text-xs text-gray-400 dark:text-zinc-500">
-                              <span th:text="${anchor.windowStart()}"></span><span th:if="${anchor.windowEnd() != null}">–<span th:text="${anchor.windowEnd()}"></span></span>
-                            </span>
-                            <span th:if="${anchor.logged()}"
-                                  th:data-testid="|pr-logged-${stat.index}|"
-                                  class="shrink-0 text-xs text-green-600 dark:text-green-400 font-medium">✓ Logged</span>
-                            <th:block th:if="${!anchor.logged()}">
-                              <input type="text" th:id="|pr-dur-${stat.index}|" th:value="${anchor.suggestedDuration()}"
-                                     class="border border-gray-300 dark:border-zinc-600 rounded px-2 py-0.5 text-xs w-16 dark:bg-zinc-900 dark:text-zinc-100"/>
-                              <button type="button" class="button-main-green text-xs"
-                                      th:data-testid="|pr-log-it-${stat.index}|"
-                                      th:data-comment="${anchor.prefilledComment()}"
-                                      th:data-date="${date}"
-                                      th:data-start="${anchor.windowStart()}"
-                                      th:data-duration-id="|pr-dur-${stat.index}|"
-                                      th:data-user-local-id="${userLocalId}"
-                                      th:data-frame-id="|pr-frame-${stat.index}|"
-                                      th:data-repo-name="${anchor.repoName()}"
-                                      th:data-anchor-type="${anchor.anchorType()}"
-                                      th:data-anchor-id="${anchor.anchorId()}"
-                                      onclick="ghLogAnchor(this)"
-                                      th:text="#{github-activity.log-it}">Log it ↓</button>
-                            </th:block>
-                          </div>
-                        </th:block>
-                      </td>
-                    </tr>
-                    <tr th:id="|pr-frame-row-${stat.index}|">
-                      <td colspan="6" class="p-0">
-                        <turbo-frame th:id="|pr-frame-${stat.index}|" class="block"></turbo-frame>
-                      </td>
-                    </tr>
+
+            <!-- Mobile card layout (hidden on md+) -->
+            <div class="md:hidden flex flex-col gap-3">
+              <th:block th:each="anchor, stat : ${prAnchors}">
+                <div class="border border-gray-200 dark:border-zinc-700 rounded-xl p-3"
+                     th:attr="data-gh-type='PR',data-gh-repo=${anchor.repoName()},data-gh-title=${anchor.anchorTitle() ?: ''},data-gh-badge=${anchor.anchorId() ?: ''},data-gh-meta=${anchor.prStatus() ?: ''},data-gh-window=${anchor.windowStart() + (anchor.windowEnd() != null ? '–' + anchor.windowEnd() : '')},data-gh-logged=${anchor.logged()},data-gh-log-id=${'pr-log-it-' + stat.index}">
+                  <div class="flex items-start justify-between gap-2 mb-1">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                         target="_blank" rel="noopener"
+                         class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                        #<span th:text="${anchor.anchorId()}"></span>
+                      </a>
+                      <span th:if="${anchor.prStatus() == 'Merged'}"
+                            class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">Merged</span>
+                      <span th:if="${anchor.prStatus() == 'Closed'}"
+                            class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">Closed</span>
+                      <span th:if="${anchor.prStatus() == 'Open'}"
+                            class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Open</span>
+                    </div>
+                  </div>
+                  <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                     target="_blank" rel="noopener"
+                     th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
+                     class="block text-sm font-medium text-gray-900 dark:text-zinc-100 hover:underline mb-0.5"
+                     th:text="${anchor.anchorTitle()}"></a>
+                  <span th:if="${#strings.isEmpty(anchor.anchorTitle())}"
+                        class="block text-sm italic text-gray-300 dark:text-zinc-600 mb-0.5">No title</span>
+                  <p class="text-xs text-gray-400 dark:text-zinc-500">
+                    <span th:text="${anchor.repoName()}"></span>
+                    <th:block th:if="${anchor.openedDate() != null}"> · <span th:text="${anchor.openedDate()}"></span></th:block>
+                    · <span th:text="${anchor.windowStart()}"></span><th:block th:if="${anchor.windowEnd() != null}">–<span th:text="${anchor.windowEnd()}"></span></th:block>
+                  </p>
+                  <th:block th:if="${!isLocked}">
+                    <div th:if="${!anchor.logged()}" class="flex items-center gap-2 pt-2 mt-2 border-t border-gray-100 dark:border-zinc-700">
+                      <input type="text" is="z-time-entry-duration-input" inputmode="numeric"
+                             th:id="|pr-dur-mob-${stat.index}|" th:value="${anchor.suggestedDuration()}"
+                             class="border border-gray-300 dark:border-zinc-600 rounded px-2 py-1.5 text-sm w-20 dark:bg-zinc-900 dark:text-zinc-100"/>
+                      <button type="button" class="button-main-green text-sm flex-1"
+                              th:data-comment="${anchor.prefilledComment()}"
+                              th:data-date="${date}"
+                              th:data-start="${anchor.windowStart()}"
+                              th:data-duration-id="|pr-dur-mob-${stat.index}|"
+                              th:data-user-local-id="${userLocalId}"
+                              th:data-frame-id="|pr-frame-mob-${stat.index}|"
+                              th:data-repo-name="${anchor.repoName()}"
+                              th:data-anchor-type="${anchor.anchorType()}"
+                              th:data-anchor-id="${anchor.anchorId()}"
+                              onclick="ghLogAnchor(this)"
+                              th:text="#{github-activity.log-it}">Log it ↓</button>
+                    </div>
+                    <div th:if="${anchor.logged()}" class="pt-2 mt-2 border-t border-gray-100 dark:border-zinc-700">
+                      <span class="text-xs text-green-600 dark:text-green-400 font-medium">✓ Logged</span>
+                    </div>
                   </th:block>
-                </tbody>
-              </table>
+                </div>
+                <turbo-frame th:id="|pr-frame-mob-${stat.index}|" class="block"></turbo-frame>
+              </th:block>
+            </div>
+
+            <!-- Desktop table (hidden on mobile) -->
+            <div class="hidden md:block">
+              <div class="border border-gray-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+                <table class="w-full text-sm">
+                  <thead class="bg-gray-50 dark:bg-zinc-800 text-xs text-gray-500 dark:text-zinc-400 uppercase tracking-wide">
+                    <tr>
+                      <th class="px-4 py-2 text-left">Repo</th>
+                      <th class="px-4 py-2 text-left">PR</th>
+                      <th class="px-4 py-2 text-left">Title</th>
+                      <th class="px-4 py-2 text-left">Opened</th>
+                      <th class="px-4 py-2 text-left">Status</th>
+                      <th class="px-4 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100 dark:divide-zinc-800">
+                    <th:block th:each="anchor, stat : ${prAnchors}">
+                      <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800/50"
+                          th:attr="data-gh-type='PR',data-gh-repo=${anchor.repoName()},data-gh-title=${anchor.anchorTitle() ?: ''},data-gh-badge=${anchor.anchorId() ?: ''},data-gh-meta=${anchor.prStatus() ?: ''},data-gh-window=${anchor.windowStart() + (anchor.windowEnd() != null ? '–' + anchor.windowEnd() : '')},data-gh-logged=${anchor.logged()},data-gh-log-id=${'pr-log-it-' + stat.index}">
+                        <td class="px-4 py-3 font-mono text-xs text-gray-500 dark:text-zinc-400 whitespace-nowrap" th:text="${anchor.repoName()}"></td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                          <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                             target="_blank" rel="noopener"
+                             class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-800">
+                            #<span th:text="${anchor.anchorId()}"></span>
+                          </a>
+                        </td>
+                        <td class="px-4 py-3">
+                          <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                             target="_blank" rel="noopener"
+                             th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
+                             class="text-gray-800 dark:text-zinc-100 hover:underline"
+                             th:text="${anchor.anchorTitle()}"></a>
+                          <span th:if="${#strings.isEmpty(anchor.anchorTitle())}"
+                                class="text-gray-300 dark:text-zinc-600 text-xs italic">No title</span>
+                        </td>
+                        <td class="px-4 py-3 text-xs text-gray-400 dark:text-zinc-500 whitespace-nowrap">
+                          <span th:if="${anchor.openedDate() != null}" th:text="${anchor.openedDate()}"></span>
+                          <span th:if="${anchor.openedDate() == null}" class="text-gray-300 dark:text-zinc-600">Today</span>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                          <span th:if="${anchor.prStatus() == 'Merged'}"
+                                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+                            Merged
+                          </span>
+                          <span th:if="${anchor.prStatus() == 'Closed'}"
+                                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                            Closed
+                          </span>
+                          <span th:if="${anchor.prStatus() == 'Open'}"
+                                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            Open
+                          </span>
+                        </td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap">
+                          <th:block th:if="${!isLocked}">
+                            <div class="flex items-center justify-end gap-2">
+                              <span class="text-xs text-gray-400 dark:text-zinc-500">
+                                <span th:text="${anchor.windowStart()}"></span><span th:if="${anchor.windowEnd() != null}">–<span th:text="${anchor.windowEnd()}"></span></span>
+                              </span>
+                              <span th:if="${anchor.logged()}"
+                                    th:data-testid="|pr-logged-${stat.index}|"
+                                    class="shrink-0 text-xs text-green-600 dark:text-green-400 font-medium">✓ Logged</span>
+                              <th:block th:if="${!anchor.logged()}">
+                                <input type="text" th:id="|pr-dur-${stat.index}|" th:value="${anchor.suggestedDuration()}"
+                                       class="border border-gray-300 dark:border-zinc-600 rounded px-2 py-0.5 text-xs w-16 dark:bg-zinc-900 dark:text-zinc-100"/>
+                                <button type="button" class="button-main-green text-xs"
+                                        th:data-testid="|pr-log-it-${stat.index}|"
+                                        th:data-comment="${anchor.prefilledComment()}"
+                                        th:data-date="${date}"
+                                        th:data-start="${anchor.windowStart()}"
+                                        th:data-duration-id="|pr-dur-${stat.index}|"
+                                        th:data-user-local-id="${userLocalId}"
+                                        th:data-frame-id="|pr-frame-${stat.index}|"
+                                        th:data-repo-name="${anchor.repoName()}"
+                                        th:data-anchor-type="${anchor.anchorType()}"
+                                        th:data-anchor-id="${anchor.anchorId()}"
+                                        onclick="ghLogAnchor(this)"
+                                        th:text="#{github-activity.log-it}">Log it ↓</button>
+                              </th:block>
+                            </div>
+                          </th:block>
+                        </td>
+                      </tr>
+                      <tr th:id="|pr-frame-row-${stat.index}|">
+                        <td colspan="6" class="p-0">
+                          <turbo-frame th:id="|pr-frame-${stat.index}|" class="block"></turbo-frame>
+                        </td>
+                      </tr>
+                    </th:block>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
 
           <!-- ── Reviews ───────────────────────────────────────────────── -->
           <section th:if="${!#lists.isEmpty(reviewAnchors)}" data-testid="github-activity-reviews-section" class="mb-8">
             <h2 class="text-base font-semibold text-gray-700 dark:text-zinc-200 mb-2">Reviews</h2>
-            <div class="border border-gray-200 dark:border-zinc-700 rounded-lg overflow-hidden">
-              <table class="w-full text-sm">
-                <thead class="bg-gray-50 dark:bg-zinc-800 text-xs text-gray-500 dark:text-zinc-400 uppercase tracking-wide">
-                  <tr>
-                    <th class="px-4 py-2 text-left">Repo</th>
-                    <th class="px-4 py-2 text-left">PR</th>
-                    <th class="px-4 py-2 text-left">Title</th>
-                    <th class="px-4 py-2 text-left">Outcome</th>
-                    <th class="px-4 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-zinc-800">
-                  <th:block th:each="anchor, stat : ${reviewAnchors}">
-                    <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800/50"
-                        th:attr="data-gh-type='Review',data-gh-repo=${anchor.repoName()},data-gh-title=${anchor.anchorTitle() ?: ''},data-gh-badge=${anchor.anchorId() ?: ''},data-gh-meta=${anchor.reviewOutcome() ?: ''},data-gh-window=${anchor.windowStart() + (anchor.windowEnd() != null ? '–' + anchor.windowEnd() : '')},data-gh-logged=${anchor.logged()},data-gh-log-id=${'rev-log-it-' + stat.index}">
-                      <td class="px-4 py-3 font-mono text-xs text-gray-500 dark:text-zinc-400 whitespace-nowrap" th:text="${anchor.repoName()}"></td>
-                      <td class="px-4 py-3 whitespace-nowrap">
-                        <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
-                           target="_blank" rel="noopener"
-                           class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-800">
-                          #<span th:text="${anchor.anchorId()}"></span>
-                        </a>
-                      </td>
-                      <td class="px-4 py-3">
-                        <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
-                           target="_blank" rel="noopener"
-                           th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
-                           class="text-gray-800 dark:text-zinc-100 hover:underline"
-                           th:text="${anchor.anchorTitle()}"></a>
-                        <span th:if="${#strings.isEmpty(anchor.anchorTitle())}"
-                              class="text-gray-300 dark:text-zinc-600 text-xs italic">No title</span>
-                      </td>
-                      <td class="px-4 py-3 whitespace-nowrap">
-                        <span th:if="${anchor.reviewOutcome() == 'Approved'}"
-                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                          ✓ Approved
-                        </span>
-                        <span th:if="${anchor.reviewOutcome() == 'Changes requested'}"
-                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
-                          Changes requested
-                        </span>
-                        <span th:if="${anchor.reviewOutcome() == 'Commented'}"
-                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-zinc-200">
-                          Commented
-                        </span>
-                      </td>
-                      <td class="px-4 py-3 text-right whitespace-nowrap">
-                        <th:block th:if="${!isLocked}">
-                          <div class="flex items-center justify-end gap-2">
-                            <span class="text-xs text-gray-400 dark:text-zinc-500">
-                              <span th:text="${anchor.windowStart()}"></span><span th:if="${anchor.windowEnd() != null}">–<span th:text="${anchor.windowEnd()}"></span></span>
-                            </span>
-                            <span th:if="${anchor.logged()}"
-                                  th:data-testid="|rev-logged-${stat.index}|"
-                                  class="shrink-0 text-xs text-green-600 dark:text-green-400 font-medium">✓ Logged</span>
-                            <th:block th:if="${!anchor.logged()}">
-                              <input type="text" th:id="|rev-dur-${stat.index}|" th:value="${anchor.suggestedDuration()}"
-                                     class="border border-gray-300 dark:border-zinc-600 rounded px-2 py-0.5 text-xs w-16 dark:bg-zinc-900 dark:text-zinc-100"/>
-                              <button type="button" class="button-main-green text-xs"
-                                      th:data-testid="|rev-log-it-${stat.index}|"
-                                      th:data-comment="${anchor.prefilledComment()}"
-                                      th:data-date="${date}"
-                                      th:data-start="${anchor.windowStart()}"
-                                      th:data-duration-id="|rev-dur-${stat.index}|"
-                                      th:data-user-local-id="${userLocalId}"
-                                      th:data-frame-id="|rev-frame-${stat.index}|"
-                                      th:data-repo-name="${anchor.repoName()}"
-                                      th:data-anchor-type="${anchor.anchorType()}"
-                                      th:data-anchor-id="${anchor.anchorId()}"
-                                      onclick="ghLogAnchor(this)"
-                                      th:text="#{github-activity.log-it}">Log it ↓</button>
-                            </th:block>
-                          </div>
-                        </th:block>
-                      </td>
-                    </tr>
-                    <tr th:id="|rev-frame-row-${stat.index}|">
-                      <td colspan="5" class="p-0">
-                        <turbo-frame th:id="|rev-frame-${stat.index}|" class="block"></turbo-frame>
-                      </td>
-                    </tr>
+
+            <!-- Mobile card layout (hidden on md+) -->
+            <div class="md:hidden flex flex-col gap-3">
+              <th:block th:each="anchor, stat : ${reviewAnchors}">
+                <div class="border border-gray-200 dark:border-zinc-700 rounded-xl p-3"
+                     th:attr="data-gh-type='Review',data-gh-repo=${anchor.repoName()},data-gh-title=${anchor.anchorTitle() ?: ''},data-gh-badge=${anchor.anchorId() ?: ''},data-gh-meta=${anchor.reviewOutcome() ?: ''},data-gh-window=${anchor.windowStart() + (anchor.windowEnd() != null ? '–' + anchor.windowEnd() : '')},data-gh-logged=${anchor.logged()},data-gh-log-id=${'rev-log-it-' + stat.index}">
+                  <div class="flex items-center gap-1.5 flex-wrap mb-1">
+                    <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                       target="_blank" rel="noopener"
+                       class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                      #<span th:text="${anchor.anchorId()}"></span>
+                    </a>
+                    <span th:if="${anchor.reviewOutcome() == 'Approved'}"
+                          class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">✓ Approved</span>
+                    <span th:if="${anchor.reviewOutcome() == 'Changes requested'}"
+                          class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">Changes requested</span>
+                    <span th:if="${anchor.reviewOutcome() == 'Commented'}"
+                          class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-zinc-200">Commented</span>
+                  </div>
+                  <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                     target="_blank" rel="noopener"
+                     th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
+                     class="block text-sm font-medium text-gray-900 dark:text-zinc-100 hover:underline mb-0.5"
+                     th:text="${anchor.anchorTitle()}"></a>
+                  <span th:if="${#strings.isEmpty(anchor.anchorTitle())}"
+                        class="block text-sm italic text-gray-300 dark:text-zinc-600 mb-0.5">No title</span>
+                  <p class="text-xs text-gray-400 dark:text-zinc-500">
+                    <span th:text="${anchor.repoName()}"></span>
+                    · <span th:text="${anchor.windowStart()}"></span><th:block th:if="${anchor.windowEnd() != null}">–<span th:text="${anchor.windowEnd()}"></span></th:block>
+                  </p>
+                  <th:block th:if="${!isLocked}">
+                    <div th:if="${!anchor.logged()}" class="flex items-center gap-2 pt-2 mt-2 border-t border-gray-100 dark:border-zinc-700">
+                      <input type="text" is="z-time-entry-duration-input" inputmode="numeric"
+                             th:id="|rev-dur-mob-${stat.index}|" th:value="${anchor.suggestedDuration()}"
+                             class="border border-gray-300 dark:border-zinc-600 rounded px-2 py-1.5 text-sm w-20 dark:bg-zinc-900 dark:text-zinc-100"/>
+                      <button type="button" class="button-main-green text-sm flex-1"
+                              th:data-comment="${anchor.prefilledComment()}"
+                              th:data-date="${date}"
+                              th:data-start="${anchor.windowStart()}"
+                              th:data-duration-id="|rev-dur-mob-${stat.index}|"
+                              th:data-user-local-id="${userLocalId}"
+                              th:data-frame-id="|rev-frame-mob-${stat.index}|"
+                              th:data-repo-name="${anchor.repoName()}"
+                              th:data-anchor-type="${anchor.anchorType()}"
+                              th:data-anchor-id="${anchor.anchorId()}"
+                              onclick="ghLogAnchor(this)"
+                              th:text="#{github-activity.log-it}">Log it ↓</button>
+                    </div>
+                    <div th:if="${anchor.logged()}" class="pt-2 mt-2 border-t border-gray-100 dark:border-zinc-700">
+                      <span class="text-xs text-green-600 dark:text-green-400 font-medium">✓ Logged</span>
+                    </div>
                   </th:block>
-                </tbody>
-              </table>
+                </div>
+                <turbo-frame th:id="|rev-frame-mob-${stat.index}|" class="block"></turbo-frame>
+              </th:block>
+            </div>
+
+            <!-- Desktop table (hidden on mobile) -->
+            <div class="hidden md:block">
+              <div class="border border-gray-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+                <table class="w-full text-sm">
+                  <thead class="bg-gray-50 dark:bg-zinc-800 text-xs text-gray-500 dark:text-zinc-400 uppercase tracking-wide">
+                    <tr>
+                      <th class="px-4 py-2 text-left">Repo</th>
+                      <th class="px-4 py-2 text-left">PR</th>
+                      <th class="px-4 py-2 text-left">Title</th>
+                      <th class="px-4 py-2 text-left">Outcome</th>
+                      <th class="px-4 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100 dark:divide-zinc-800">
+                    <th:block th:each="anchor, stat : ${reviewAnchors}">
+                      <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800/50"
+                          th:attr="data-gh-type='Review',data-gh-repo=${anchor.repoName()},data-gh-title=${anchor.anchorTitle() ?: ''},data-gh-badge=${anchor.anchorId() ?: ''},data-gh-meta=${anchor.reviewOutcome() ?: ''},data-gh-window=${anchor.windowStart() + (anchor.windowEnd() != null ? '–' + anchor.windowEnd() : '')},data-gh-logged=${anchor.logged()},data-gh-log-id=${'rev-log-it-' + stat.index}">
+                        <td class="px-4 py-3 font-mono text-xs text-gray-500 dark:text-zinc-400 whitespace-nowrap" th:text="${anchor.repoName()}"></td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                          <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                             target="_blank" rel="noopener"
+                             class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-800">
+                            #<span th:text="${anchor.anchorId()}"></span>
+                          </a>
+                        </td>
+                        <td class="px-4 py-3">
+                          <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                             target="_blank" rel="noopener"
+                             th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
+                             class="text-gray-800 dark:text-zinc-100 hover:underline"
+                             th:text="${anchor.anchorTitle()}"></a>
+                          <span th:if="${#strings.isEmpty(anchor.anchorTitle())}"
+                                class="text-gray-300 dark:text-zinc-600 text-xs italic">No title</span>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                          <span th:if="${anchor.reviewOutcome() == 'Approved'}"
+                                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            ✓ Approved
+                          </span>
+                          <span th:if="${anchor.reviewOutcome() == 'Changes requested'}"
+                                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                            Changes requested
+                          </span>
+                          <span th:if="${anchor.reviewOutcome() == 'Commented'}"
+                                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-zinc-200">
+                            Commented
+                          </span>
+                        </td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap">
+                          <th:block th:if="${!isLocked}">
+                            <div class="flex items-center justify-end gap-2">
+                              <span class="text-xs text-gray-400 dark:text-zinc-500">
+                                <span th:text="${anchor.windowStart()}"></span><span th:if="${anchor.windowEnd() != null}">–<span th:text="${anchor.windowEnd()}"></span></span>
+                              </span>
+                              <span th:if="${anchor.logged()}"
+                                    th:data-testid="|rev-logged-${stat.index}|"
+                                    class="shrink-0 text-xs text-green-600 dark:text-green-400 font-medium">✓ Logged</span>
+                              <th:block th:if="${!anchor.logged()}">
+                                <input type="text" th:id="|rev-dur-${stat.index}|" th:value="${anchor.suggestedDuration()}"
+                                       class="border border-gray-300 dark:border-zinc-600 rounded px-2 py-0.5 text-xs w-16 dark:bg-zinc-900 dark:text-zinc-100"/>
+                                <button type="button" class="button-main-green text-xs"
+                                        th:data-testid="|rev-log-it-${stat.index}|"
+                                        th:data-comment="${anchor.prefilledComment()}"
+                                        th:data-date="${date}"
+                                        th:data-start="${anchor.windowStart()}"
+                                        th:data-duration-id="|rev-dur-${stat.index}|"
+                                        th:data-user-local-id="${userLocalId}"
+                                        th:data-frame-id="|rev-frame-${stat.index}|"
+                                        th:data-repo-name="${anchor.repoName()}"
+                                        th:data-anchor-type="${anchor.anchorType()}"
+                                        th:data-anchor-id="${anchor.anchorId()}"
+                                        onclick="ghLogAnchor(this)"
+                                        th:text="#{github-activity.log-it}">Log it ↓</button>
+                              </th:block>
+                            </div>
+                          </th:block>
+                        </td>
+                      </tr>
+                      <tr th:id="|rev-frame-row-${stat.index}|">
+                        <td colspan="5" class="p-0">
+                          <turbo-frame th:id="|rev-frame-${stat.index}|" class="block"></turbo-frame>
+                        </td>
+                      </tr>
+                    </th:block>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
 
           <!-- ── Issues ────────────────────────────────────────────────── -->
           <section th:if="${!#lists.isEmpty(issueAnchors)}" data-testid="github-activity-issues-section" class="mb-8">
             <h2 class="text-base font-semibold text-gray-700 dark:text-zinc-200 mb-2">Issues</h2>
-            <div class="border border-gray-200 dark:border-zinc-700 rounded-lg overflow-hidden">
-              <table class="w-full text-sm">
-                <thead class="bg-gray-50 dark:bg-zinc-800 text-xs text-gray-500 dark:text-zinc-400 uppercase tracking-wide">
-                  <tr>
-                    <th class="px-4 py-2 text-left">Repo</th>
-                    <th class="px-4 py-2 text-left">Issue</th>
-                    <th class="px-4 py-2 text-left">Title</th>
-                    <th class="px-4 py-2 text-left">Action</th>
-                    <th class="px-4 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-zinc-800">
-                  <th:block th:each="anchor, stat : ${issueAnchors}">
-                    <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800/50"
-                        th:attr="data-gh-type='Issue',data-gh-repo=${anchor.repoName()},data-gh-title=${anchor.anchorTitle() ?: ''},data-gh-badge=${anchor.anchorId() ?: ''},data-gh-meta=${anchor.issueAction() ?: ''},data-gh-window=${anchor.windowStart() + (anchor.windowEnd() != null ? '–' + anchor.windowEnd() : '')},data-gh-logged=${anchor.logged()},data-gh-log-id=${'iss-log-it-' + stat.index}">
-                      <td class="px-4 py-3 font-mono text-xs text-gray-500 dark:text-zinc-400 whitespace-nowrap" th:text="${anchor.repoName()}"></td>
-                      <td class="px-4 py-3 whitespace-nowrap">
-                        <a th:href="|https://github.com/${anchor.repoName()}/issues/${anchor.anchorId()}|"
-                           target="_blank" rel="noopener"
-                           class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-800">
-                          #<span th:text="${anchor.anchorId()}"></span>
-                        </a>
-                      </td>
-                      <td class="px-4 py-3">
-                        <a th:href="|https://github.com/${anchor.repoName()}/issues/${anchor.anchorId()}|"
-                           target="_blank" rel="noopener"
-                           th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
-                           class="text-gray-800 dark:text-zinc-100 hover:underline"
-                           th:text="${anchor.anchorTitle()}"></a>
-                        <span th:if="${#strings.isEmpty(anchor.anchorTitle())}"
-                              class="text-gray-300 dark:text-zinc-600 text-xs italic">No title</span>
-                      </td>
-                      <td class="px-4 py-3 whitespace-nowrap">
-                        <span th:if="${anchor.issueAction() == 'Opened'}"
-                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                          Opened
-                        </span>
-                        <span th:if="${anchor.issueAction() == 'Closed'}"
-                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-zinc-300">
-                          Closed
-                        </span>
-                        <span th:if="${anchor.issueAction() == 'Commented'}"
-                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                          Commented
-                        </span>
-                        <span th:if="${anchor.issueAction() == 'Updated'}"
-                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-zinc-300">
-                          Updated
-                        </span>
-                      </td>
-                      <td class="px-4 py-3 text-right whitespace-nowrap">
-                        <th:block th:if="${!isLocked}">
-                          <div class="flex items-center justify-end gap-2">
-                            <span class="text-xs text-gray-400 dark:text-zinc-500">
-                              <span th:text="${anchor.windowStart()}"></span><span th:if="${anchor.windowEnd() != null}">–<span th:text="${anchor.windowEnd()}"></span></span>
-                            </span>
-                            <span th:if="${anchor.logged()}"
-                                  th:data-testid="|iss-logged-${stat.index}|"
-                                  class="shrink-0 text-xs text-green-600 dark:text-green-400 font-medium">✓ Logged</span>
-                            <th:block th:if="${!anchor.logged()}">
-                              <input type="text" th:id="|iss-dur-${stat.index}|" th:value="${anchor.suggestedDuration()}"
-                                     class="border border-gray-300 dark:border-zinc-600 rounded px-2 py-0.5 text-xs w-16 dark:bg-zinc-900 dark:text-zinc-100"/>
-                              <button type="button" class="button-main-green text-xs"
-                                      th:data-testid="|iss-log-it-${stat.index}|"
-                                      th:data-comment="${anchor.prefilledComment()}"
-                                      th:data-date="${date}"
-                                      th:data-start="${anchor.windowStart()}"
-                                      th:data-duration-id="|iss-dur-${stat.index}|"
-                                      th:data-user-local-id="${userLocalId}"
-                                      th:data-frame-id="|iss-frame-${stat.index}|"
-                                      th:data-repo-name="${anchor.repoName()}"
-                                      th:data-anchor-type="${anchor.anchorType()}"
-                                      th:data-anchor-id="${anchor.anchorId()}"
-                                      onclick="ghLogAnchor(this)"
-                                      th:text="#{github-activity.log-it}">Log it ↓</button>
-                            </th:block>
-                          </div>
-                        </th:block>
-                      </td>
-                    </tr>
-                    <tr th:id="|iss-frame-row-${stat.index}|">
-                      <td colspan="5" class="p-0">
-                        <turbo-frame th:id="|iss-frame-${stat.index}|" class="block"></turbo-frame>
-                      </td>
-                    </tr>
+
+            <!-- Mobile card layout (hidden on md+) -->
+            <div class="md:hidden flex flex-col gap-3">
+              <th:block th:each="anchor, stat : ${issueAnchors}">
+                <div class="border border-gray-200 dark:border-zinc-700 rounded-xl p-3"
+                     th:attr="data-gh-type='Issue',data-gh-repo=${anchor.repoName()},data-gh-title=${anchor.anchorTitle() ?: ''},data-gh-badge=${anchor.anchorId() ?: ''},data-gh-meta=${anchor.issueAction() ?: ''},data-gh-window=${anchor.windowStart() + (anchor.windowEnd() != null ? '–' + anchor.windowEnd() : '')},data-gh-logged=${anchor.logged()},data-gh-log-id=${'iss-log-it-' + stat.index}">
+                  <div class="flex items-center gap-1.5 flex-wrap mb-1">
+                    <a th:href="|https://github.com/${anchor.repoName()}/issues/${anchor.anchorId()}|"
+                       target="_blank" rel="noopener"
+                       class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                      #<span th:text="${anchor.anchorId()}"></span>
+                    </a>
+                    <span th:if="${anchor.issueAction() == 'Opened'}"
+                          class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">Opened</span>
+                    <span th:if="${anchor.issueAction() == 'Closed'}"
+                          class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-zinc-300">Closed</span>
+                    <span th:if="${anchor.issueAction() == 'Commented'}"
+                          class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Commented</span>
+                    <span th:if="${anchor.issueAction() == 'Updated'}"
+                          class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-zinc-300">Updated</span>
+                  </div>
+                  <a th:href="|https://github.com/${anchor.repoName()}/issues/${anchor.anchorId()}|"
+                     target="_blank" rel="noopener"
+                     th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
+                     class="block text-sm font-medium text-gray-900 dark:text-zinc-100 hover:underline mb-0.5"
+                     th:text="${anchor.anchorTitle()}"></a>
+                  <span th:if="${#strings.isEmpty(anchor.anchorTitle())}"
+                        class="block text-sm italic text-gray-300 dark:text-zinc-600 mb-0.5">No title</span>
+                  <p class="text-xs text-gray-400 dark:text-zinc-500">
+                    <span th:text="${anchor.repoName()}"></span>
+                    · <span th:text="${anchor.windowStart()}"></span><th:block th:if="${anchor.windowEnd() != null}">–<span th:text="${anchor.windowEnd()}"></span></th:block>
+                  </p>
+                  <th:block th:if="${!isLocked}">
+                    <div th:if="${!anchor.logged()}" class="flex items-center gap-2 pt-2 mt-2 border-t border-gray-100 dark:border-zinc-700">
+                      <input type="text" is="z-time-entry-duration-input" inputmode="numeric"
+                             th:id="|iss-dur-mob-${stat.index}|" th:value="${anchor.suggestedDuration()}"
+                             class="border border-gray-300 dark:border-zinc-600 rounded px-2 py-1.5 text-sm w-20 dark:bg-zinc-900 dark:text-zinc-100"/>
+                      <button type="button" class="button-main-green text-sm flex-1"
+                              th:data-comment="${anchor.prefilledComment()}"
+                              th:data-date="${date}"
+                              th:data-start="${anchor.windowStart()}"
+                              th:data-duration-id="|iss-dur-mob-${stat.index}|"
+                              th:data-user-local-id="${userLocalId}"
+                              th:data-frame-id="|iss-frame-mob-${stat.index}|"
+                              th:data-repo-name="${anchor.repoName()}"
+                              th:data-anchor-type="${anchor.anchorType()}"
+                              th:data-anchor-id="${anchor.anchorId()}"
+                              onclick="ghLogAnchor(this)"
+                              th:text="#{github-activity.log-it}">Log it ↓</button>
+                    </div>
+                    <div th:if="${anchor.logged()}" class="pt-2 mt-2 border-t border-gray-100 dark:border-zinc-700">
+                      <span class="text-xs text-green-600 dark:text-green-400 font-medium">✓ Logged</span>
+                    </div>
                   </th:block>
-                </tbody>
-              </table>
+                </div>
+                <turbo-frame th:id="|iss-frame-mob-${stat.index}|" class="block"></turbo-frame>
+              </th:block>
+            </div>
+
+            <!-- Desktop table (hidden on mobile) -->
+            <div class="hidden md:block">
+              <div class="border border-gray-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+                <table class="w-full text-sm">
+                  <thead class="bg-gray-50 dark:bg-zinc-800 text-xs text-gray-500 dark:text-zinc-400 uppercase tracking-wide">
+                    <tr>
+                      <th class="px-4 py-2 text-left">Repo</th>
+                      <th class="px-4 py-2 text-left">Issue</th>
+                      <th class="px-4 py-2 text-left">Title</th>
+                      <th class="px-4 py-2 text-left">Action</th>
+                      <th class="px-4 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100 dark:divide-zinc-800">
+                    <th:block th:each="anchor, stat : ${issueAnchors}">
+                      <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800/50"
+                          th:attr="data-gh-type='Issue',data-gh-repo=${anchor.repoName()},data-gh-title=${anchor.anchorTitle() ?: ''},data-gh-badge=${anchor.anchorId() ?: ''},data-gh-meta=${anchor.issueAction() ?: ''},data-gh-window=${anchor.windowStart() + (anchor.windowEnd() != null ? '–' + anchor.windowEnd() : '')},data-gh-logged=${anchor.logged()},data-gh-log-id=${'iss-log-it-' + stat.index}">
+                        <td class="px-4 py-3 font-mono text-xs text-gray-500 dark:text-zinc-400 whitespace-nowrap" th:text="${anchor.repoName()}"></td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                          <a th:href="|https://github.com/${anchor.repoName()}/issues/${anchor.anchorId()}|"
+                             target="_blank" rel="noopener"
+                             class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-800">
+                            #<span th:text="${anchor.anchorId()}"></span>
+                          </a>
+                        </td>
+                        <td class="px-4 py-3">
+                          <a th:href="|https://github.com/${anchor.repoName()}/issues/${anchor.anchorId()}|"
+                             target="_blank" rel="noopener"
+                             th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
+                             class="text-gray-800 dark:text-zinc-100 hover:underline"
+                             th:text="${anchor.anchorTitle()}"></a>
+                          <span th:if="${#strings.isEmpty(anchor.anchorTitle())}"
+                                class="text-gray-300 dark:text-zinc-600 text-xs italic">No title</span>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                          <span th:if="${anchor.issueAction() == 'Opened'}"
+                                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                            Opened
+                          </span>
+                          <span th:if="${anchor.issueAction() == 'Closed'}"
+                                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-zinc-300">
+                            Closed
+                          </span>
+                          <span th:if="${anchor.issueAction() == 'Commented'}"
+                                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                            Commented
+                          </span>
+                          <span th:if="${anchor.issueAction() == 'Updated'}"
+                                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-zinc-300">
+                            Updated
+                          </span>
+                        </td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap">
+                          <th:block th:if="${!isLocked}">
+                            <div class="flex items-center justify-end gap-2">
+                              <span class="text-xs text-gray-400 dark:text-zinc-500">
+                                <span th:text="${anchor.windowStart()}"></span><span th:if="${anchor.windowEnd() != null}">–<span th:text="${anchor.windowEnd()}"></span></span>
+                              </span>
+                              <span th:if="${anchor.logged()}"
+                                    th:data-testid="|iss-logged-${stat.index}|"
+                                    class="shrink-0 text-xs text-green-600 dark:text-green-400 font-medium">✓ Logged</span>
+                              <th:block th:if="${!anchor.logged()}">
+                                <input type="text" th:id="|iss-dur-${stat.index}|" th:value="${anchor.suggestedDuration()}"
+                                       class="border border-gray-300 dark:border-zinc-600 rounded px-2 py-0.5 text-xs w-16 dark:bg-zinc-900 dark:text-zinc-100"/>
+                                <button type="button" class="button-main-green text-xs"
+                                        th:data-testid="|iss-log-it-${stat.index}|"
+                                        th:data-comment="${anchor.prefilledComment()}"
+                                        th:data-date="${date}"
+                                        th:data-start="${anchor.windowStart()}"
+                                        th:data-duration-id="|iss-dur-${stat.index}|"
+                                        th:data-user-local-id="${userLocalId}"
+                                        th:data-frame-id="|iss-frame-${stat.index}|"
+                                        th:data-repo-name="${anchor.repoName()}"
+                                        th:data-anchor-type="${anchor.anchorType()}"
+                                        th:data-anchor-id="${anchor.anchorId()}"
+                                        onclick="ghLogAnchor(this)"
+                                        th:text="#{github-activity.log-it}">Log it ↓</button>
+                              </th:block>
+                            </div>
+                          </th:block>
+                        </td>
+                      </tr>
+                      <tr th:id="|iss-frame-row-${stat.index}|">
+                        <td colspan="5" class="p-0">
+                          <turbo-frame th:id="|iss-frame-${stat.index}|" class="block"></turbo-frame>
+                        </td>
+                      </tr>
+                    </th:block>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
 
@@ -809,6 +1006,7 @@
         function ghSearchCollectItems() {
           ghSearchItems = [];
           document.querySelectorAll('[data-gh-type]').forEach(el => {
+            if (el.offsetParent === null) return; // skip hidden layout (mobile cards on desktop, table on mobile)
             ghSearchItems.push({
               type:    el.dataset.ghType,
               repo:    el.dataset.ghRepo    || '',
@@ -878,7 +1076,10 @@
 
         function ghSearchLogItem(e, logId) {
           e.stopPropagation();
-          const btn = document.querySelector('[data-testid="' + logId + '"]');
+          // Prefer the visible button (mobile card vs desktop table may both have same testid)
+          const btn = [...document.querySelectorAll('[data-testid="' + logId + '"]')]
+            .find(el => el.offsetParent !== null)
+            || document.querySelector('[data-testid="' + logId + '"]');
           if (!btn) return;
           ghSearchClose();
           btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
