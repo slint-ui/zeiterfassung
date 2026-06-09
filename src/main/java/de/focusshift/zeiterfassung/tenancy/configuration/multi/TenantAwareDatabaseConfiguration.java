@@ -3,7 +3,11 @@ package de.focusshift.zeiterfassung.tenancy.configuration.multi;
 import com.zaxxer.hikari.HikariDataSource;
 import de.focusshift.zeiterfassung.absence.AbsenceTypeEntity;
 import de.focusshift.zeiterfassung.absence.AbsenceWriteEntity;
+import de.focusshift.zeiterfassung.activitytype.ActivityTypeEntity;
 import de.focusshift.zeiterfassung.companyvacation.CompanyVacationEntity;
+import de.focusshift.zeiterfassung.customer.CustomerEntity;
+import de.focusshift.zeiterfassung.gitactivity.GitActivityRawEventEntity;
+import de.focusshift.zeiterfassung.project.ProjectEntity;
 import de.focusshift.zeiterfassung.settings.FederalStateSettingsEntity;
 import de.focusshift.zeiterfassung.tenancy.tenant.TenantAwareRevisionEntity;
 import de.focusshift.zeiterfassung.tenancy.tenant.TenantContextHolder;
@@ -48,7 +52,12 @@ import static org.hibernate.cfg.AvailableSettings.BEAN_CONTAINER;
         OvertimeAccountEntity.class,
         FederalStateSettingsEntity.class,
         CompanyVacationEntity.class,
-        UserSettingsEntity.class
+        UserSettingsEntity.class,
+        // slint fork additions — GitHub/Git activity + categorisation (customer / project / activity-type)
+        GitActivityRawEventEntity.class,
+        CustomerEntity.class,
+        ProjectEntity.class,
+        ActivityTypeEntity.class
         // SubtractBreakFromTimeEntrySettingsEntity.class, // disabled for now to prevent duplicated bean definitions
         // LockTimeEntriesSettingsEntity.class // disabled for now to prevent duplicated bean definitions
     },
@@ -104,7 +113,12 @@ class TenantAwareDatabaseConfiguration {
                 OvertimeAccountEntity.class,
                 FederalStateSettingsEntity.class,
                 CompanyVacationEntity.class,
-                UserSettingsEntity.class
+                UserSettingsEntity.class,
+                // slint fork additions — GitHub/Git activity + categorisation (customer / project / activity-type)
+                GitActivityRawEventEntity.class,
+                CustomerEntity.class,
+                ProjectEntity.class,
+                ActivityTypeEntity.class
                 // SubtractBreakFromTimeEntrySettingsEntity.class, // disabled for now to prevent duplicated bean definitions
                 // LockTimeEntriesSettingsEntity.class // disabled for now to prevent duplicated bean definitions
             )

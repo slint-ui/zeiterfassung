@@ -15,7 +15,7 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "activity_type")
-class ActivityTypeEntity extends AbstractTenantAwareEntity {
+public class ActivityTypeEntity extends AbstractTenantAwareEntity {
 
     @Id
     @Column(name = "id", unique = true, nullable = false, updatable = false)
