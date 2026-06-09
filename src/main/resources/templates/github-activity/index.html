@@ -193,7 +193,7 @@
                      th:attr="data-gh-type='PR',data-gh-repo=${anchor.repoName()},data-gh-title=${anchor.anchorTitle() ?: ''},data-gh-badge=${anchor.anchorId() ?: ''},data-gh-meta=${anchor.prStatus() ?: ''},data-gh-window=${anchor.windowStart() + (anchor.windowEnd() != null ? '–' + anchor.windowEnd() : '')},data-gh-logged=${anchor.logged()},data-gh-log-id=${'pr-log-it-' + stat.index}">
                   <div class="flex items-start justify-between gap-2 mb-1">
                     <div class="flex items-center gap-1.5 flex-wrap">
-                      <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                      <a th:href="${anchor.anchorUrl()}"
                          target="_blank" rel="noopener"
                          class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                         #<span th:text="${anchor.anchorId()}"></span>
@@ -206,7 +206,7 @@
                             class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Open</span>
                     </div>
                   </div>
-                  <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                  <a th:href="${anchor.anchorUrl()}"
                      target="_blank" rel="noopener"
                      th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
                      class="block text-sm font-medium text-gray-900 dark:text-zinc-100 hover:underline mb-0.5"
@@ -214,7 +214,7 @@
                   <span th:if="${#strings.isEmpty(anchor.anchorTitle())}"
                         class="block text-sm italic text-gray-300 dark:text-zinc-600 mb-0.5">No title</span>
                   <p class="text-xs text-gray-400 dark:text-zinc-500">
-                    <span th:text="${anchor.repoName()}"></span>
+                    <span th:text="${anchor.repoName()}"></span><span th:if="${anchor.platform() == 'BITBUCKET'}" class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">Bitbucket</span>
                     <th:block th:if="${anchor.openedDate() != null}"> · <span th:text="${anchor.openedDate()}"></span></th:block>
                     · <span th:text="${anchor.windowStart()}"></span><th:block th:if="${anchor.windowEnd() != null}">–<span th:text="${anchor.windowEnd()}"></span></th:block>
                   </p>
@@ -263,16 +263,16 @@
                     <th:block th:each="anchor, stat : ${prAnchors}">
                       <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800/50"
                           th:attr="data-gh-type='PR',data-gh-repo=${anchor.repoName()},data-gh-title=${anchor.anchorTitle() ?: ''},data-gh-badge=${anchor.anchorId() ?: ''},data-gh-meta=${anchor.prStatus() ?: ''},data-gh-window=${anchor.windowStart() + (anchor.windowEnd() != null ? '–' + anchor.windowEnd() : '')},data-gh-logged=${anchor.logged()},data-gh-log-id=${'pr-log-it-' + stat.index}">
-                        <td class="px-4 py-3 font-mono text-xs text-gray-500 dark:text-zinc-400 whitespace-nowrap" th:text="${anchor.repoName()}"></td>
+                        <td class="px-4 py-3 font-mono text-xs text-gray-500 dark:text-zinc-400 whitespace-nowrap"><span th:text="${anchor.repoName()}"></span><span th:if="${anchor.platform() == 'BITBUCKET'}" class="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">Bitbucket</span></td>
                         <td class="px-4 py-3 whitespace-nowrap">
-                          <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                          <a th:href="${anchor.anchorUrl()}"
                              target="_blank" rel="noopener"
                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-800">
                             #<span th:text="${anchor.anchorId()}"></span>
                           </a>
                         </td>
                         <td class="px-4 py-3">
-                          <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                          <a th:href="${anchor.anchorUrl()}"
                              target="_blank" rel="noopener"
                              th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
                              class="text-gray-800 dark:text-zinc-100 hover:underline"
@@ -350,7 +350,7 @@
                 <div class="border border-gray-200 dark:border-zinc-700 rounded-xl p-3"
                      th:attr="data-gh-type='Review',data-gh-repo=${anchor.repoName()},data-gh-title=${anchor.anchorTitle() ?: ''},data-gh-badge=${anchor.anchorId() ?: ''},data-gh-meta=${anchor.reviewOutcome() ?: ''},data-gh-window=${anchor.windowStart() + (anchor.windowEnd() != null ? '–' + anchor.windowEnd() : '')},data-gh-logged=${anchor.logged()},data-gh-log-id=${'rev-log-it-' + stat.index}">
                   <div class="flex items-center gap-1.5 flex-wrap mb-1">
-                    <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                    <a th:href="${anchor.anchorUrl()}"
                        target="_blank" rel="noopener"
                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                       #<span th:text="${anchor.anchorId()}"></span>
@@ -362,7 +362,7 @@
                     <span th:if="${anchor.reviewOutcome() == 'Commented'}"
                           class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-zinc-200">Commented</span>
                   </div>
-                  <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                  <a th:href="${anchor.anchorUrl()}"
                      target="_blank" rel="noopener"
                      th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
                      class="block text-sm font-medium text-gray-900 dark:text-zinc-100 hover:underline mb-0.5"
@@ -370,7 +370,7 @@
                   <span th:if="${#strings.isEmpty(anchor.anchorTitle())}"
                         class="block text-sm italic text-gray-300 dark:text-zinc-600 mb-0.5">No title</span>
                   <p class="text-xs text-gray-400 dark:text-zinc-500">
-                    <span th:text="${anchor.repoName()}"></span>
+                    <span th:text="${anchor.repoName()}"></span><span th:if="${anchor.platform() == 'BITBUCKET'}" class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">Bitbucket</span>
                     · <span th:text="${anchor.windowStart()}"></span><th:block th:if="${anchor.windowEnd() != null}">–<span th:text="${anchor.windowEnd()}"></span></th:block>
                   </p>
                   <th:block th:if="${!isLocked}">
@@ -417,16 +417,16 @@
                     <th:block th:each="anchor, stat : ${reviewAnchors}">
                       <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800/50"
                           th:attr="data-gh-type='Review',data-gh-repo=${anchor.repoName()},data-gh-title=${anchor.anchorTitle() ?: ''},data-gh-badge=${anchor.anchorId() ?: ''},data-gh-meta=${anchor.reviewOutcome() ?: ''},data-gh-window=${anchor.windowStart() + (anchor.windowEnd() != null ? '–' + anchor.windowEnd() : '')},data-gh-logged=${anchor.logged()},data-gh-log-id=${'rev-log-it-' + stat.index}">
-                        <td class="px-4 py-3 font-mono text-xs text-gray-500 dark:text-zinc-400 whitespace-nowrap" th:text="${anchor.repoName()}"></td>
+                        <td class="px-4 py-3 font-mono text-xs text-gray-500 dark:text-zinc-400 whitespace-nowrap"><span th:text="${anchor.repoName()}"></span><span th:if="${anchor.platform() == 'BITBUCKET'}" class="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">Bitbucket</span></td>
                         <td class="px-4 py-3 whitespace-nowrap">
-                          <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                          <a th:href="${anchor.anchorUrl()}"
                              target="_blank" rel="noopener"
                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-800">
                             #<span th:text="${anchor.anchorId()}"></span>
                           </a>
                         </td>
                         <td class="px-4 py-3">
-                          <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                          <a th:href="${anchor.anchorUrl()}"
                              target="_blank" rel="noopener"
                              th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
                              class="text-gray-800 dark:text-zinc-100 hover:underline"
@@ -500,7 +500,7 @@
                 <div class="border border-gray-200 dark:border-zinc-700 rounded-xl p-3"
                      th:attr="data-gh-type='Issue',data-gh-repo=${anchor.repoName()},data-gh-title=${anchor.anchorTitle() ?: ''},data-gh-badge=${anchor.anchorId() ?: ''},data-gh-meta=${anchor.issueAction() ?: ''},data-gh-window=${anchor.windowStart() + (anchor.windowEnd() != null ? '–' + anchor.windowEnd() : '')},data-gh-logged=${anchor.logged()},data-gh-log-id=${'iss-log-it-' + stat.index}">
                   <div class="flex items-center gap-1.5 flex-wrap mb-1">
-                    <a th:href="|https://github.com/${anchor.repoName()}/issues/${anchor.anchorId()}|"
+                    <a th:href="${anchor.anchorUrl()}"
                        target="_blank" rel="noopener"
                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                       #<span th:text="${anchor.anchorId()}"></span>
@@ -514,7 +514,7 @@
                     <span th:if="${anchor.issueAction() == 'Updated'}"
                           class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-zinc-300">Updated</span>
                   </div>
-                  <a th:href="|https://github.com/${anchor.repoName()}/issues/${anchor.anchorId()}|"
+                  <a th:href="${anchor.anchorUrl()}"
                      target="_blank" rel="noopener"
                      th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
                      class="block text-sm font-medium text-gray-900 dark:text-zinc-100 hover:underline mb-0.5"
@@ -522,7 +522,7 @@
                   <span th:if="${#strings.isEmpty(anchor.anchorTitle())}"
                         class="block text-sm italic text-gray-300 dark:text-zinc-600 mb-0.5">No title</span>
                   <p class="text-xs text-gray-400 dark:text-zinc-500">
-                    <span th:text="${anchor.repoName()}"></span>
+                    <span th:text="${anchor.repoName()}"></span><span th:if="${anchor.platform() == 'BITBUCKET'}" class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">Bitbucket</span>
                     · <span th:text="${anchor.windowStart()}"></span><th:block th:if="${anchor.windowEnd() != null}">–<span th:text="${anchor.windowEnd()}"></span></th:block>
                   </p>
                   <th:block th:if="${!isLocked}">
@@ -569,16 +569,16 @@
                     <th:block th:each="anchor, stat : ${issueAnchors}">
                       <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800/50"
                           th:attr="data-gh-type='Issue',data-gh-repo=${anchor.repoName()},data-gh-title=${anchor.anchorTitle() ?: ''},data-gh-badge=${anchor.anchorId() ?: ''},data-gh-meta=${anchor.issueAction() ?: ''},data-gh-window=${anchor.windowStart() + (anchor.windowEnd() != null ? '–' + anchor.windowEnd() : '')},data-gh-logged=${anchor.logged()},data-gh-log-id=${'iss-log-it-' + stat.index}">
-                        <td class="px-4 py-3 font-mono text-xs text-gray-500 dark:text-zinc-400 whitespace-nowrap" th:text="${anchor.repoName()}"></td>
+                        <td class="px-4 py-3 font-mono text-xs text-gray-500 dark:text-zinc-400 whitespace-nowrap"><span th:text="${anchor.repoName()}"></span><span th:if="${anchor.platform() == 'BITBUCKET'}" class="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">Bitbucket</span></td>
                         <td class="px-4 py-3 whitespace-nowrap">
-                          <a th:href="|https://github.com/${anchor.repoName()}/issues/${anchor.anchorId()}|"
+                          <a th:href="${anchor.anchorUrl()}"
                              target="_blank" rel="noopener"
                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-800">
                             #<span th:text="${anchor.anchorId()}"></span>
                           </a>
                         </td>
                         <td class="px-4 py-3">
-                          <a th:href="|https://github.com/${anchor.repoName()}/issues/${anchor.anchorId()}|"
+                          <a th:href="${anchor.anchorUrl()}"
                              target="_blank" rel="noopener"
                              th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
                              class="text-gray-800 dark:text-zinc-100 hover:underline"

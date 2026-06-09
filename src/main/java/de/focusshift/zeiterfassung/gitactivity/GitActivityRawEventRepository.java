@@ -19,6 +19,10 @@ public interface GitActivityRawEventRepository extends JpaRepository<GitActivity
     List<GitActivityRawEventEntity> findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
         String platformUsername, Instant from, Instant to);
 
+    /** Multi-identity variant: events for any of the user's platform usernames (GitHub login + OAuth account IDs). */
+    List<GitActivityRawEventEntity> findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+        Collection<String> platformUsernames, Instant from, Instant to);
+
     /**
      * Returns the earliest event timestamp per (repoName, anchorId) pair for the given PR anchor IDs.
      * Each row is [repoName (String), anchorId (String), minTimestamp (Instant)].
@@ -27,10 +31,10 @@ public interface GitActivityRawEventRepository extends JpaRepository<GitActivity
     @org.springframework.data.jpa.repository.Query(
         "SELECT e.repoName, e.anchorId, MIN(e.eventTimestamp) " +
         "FROM GitActivityRawEventEntity e " +
-        "WHERE e.platformUsername = :username AND e.anchorType = 'PR' AND e.anchorId IN :anchorIds " +
+        "WHERE e.platformUsername IN :usernames AND e.anchorType = 'PR' AND e.anchorId IN :anchorIds " +
         "GROUP BY e.repoName, e.anchorId")
     List<Object[]> findEarliestPrTimestamps(
-        @org.springframework.data.repository.query.Param("username") String username,
+        @org.springframework.data.repository.query.Param("usernames") Collection<String> usernames,
         @org.springframework.data.repository.query.Param("anchorIds") Collection<String> anchorIds);
 
     Optional<GitActivityRawEventEntity> findFirstByPlatformUsernameAndRepoNameAndAnchorTypeAndAnchorIdOrderByEventTimestampAsc(

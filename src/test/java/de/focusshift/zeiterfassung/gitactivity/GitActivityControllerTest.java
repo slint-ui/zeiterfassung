@@ -99,7 +99,7 @@ class GitActivityControllerTest implements ControllerTest {
         when(gitHubProvider.getRateLimitRemaining()).thenReturn(5000);
         when(gitHubProvider.getRateLimitTotal()).thenReturn(5000);
         when(eventRepository.findDistinctRepoAndHeadBranchesByUsernameUpToDate(anyString(), any())).thenReturn(Set.of());
-        when(eventRepository.findEarliestPrTimestamps(anyString(), any())).thenReturn(List.of());
+        when(eventRepository.findEarliestPrTimestamps(any(), any())).thenReturn(List.of());
         when(workingTimeSettingsService.getWorkingTimeSettings()).thenReturn(WorkingTimeSettings.DEFAULT);
         when(timeEntryService.getEntries(any(LocalDate.class), any(LocalDate.class), any(de.focusshift.zeiterfassung.usermanagement.UserLocalId.class))).thenReturn(List.of());
     }
@@ -176,8 +176,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var pr = prEntity("e1", "slint-ui/slint", "11950",
                 "Upgrade deps", "Merged PR #11950: Upgrade deps");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(pr));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(pr));
             when(eventRepository.findFirstByPlatformUsernameAndRepoNameAndAnchorTypeAndAnchorIdOrderByEventTimestampAsc(
                 anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(java.util.Optional.of(pr));
@@ -195,8 +195,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var review = reviewEntity("e2", "slint-ui/slint", "11957",
                 "Data Transfer API", "Approved PR #11957: Data Transfer API");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(review));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(review));
 
             perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andExpect(status().isOk())
@@ -211,8 +211,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var issue = issueEntity("e3", "slint-ui/slint", "11949",
                 "Keys is anonymous type", "Opened issue #11949: Keys is anonymous type");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(issue));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(issue));
 
             perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andExpect(status().isOk())
@@ -227,8 +227,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var commit = commitEntity("abc123def456abc123def456abc123def456abc1",
                 "slint-ui/slint", "simon/license", "Replace cargo-about");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(commit));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(commit));
 
             perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andExpect(status().isOk())
@@ -250,8 +250,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var pr = prEntity("e1", "slint-ui/slint", "11950",
                 "Upgrade deps", "Merged PR #11950: Upgrade deps");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(pr));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(pr));
             when(eventRepository.findFirstByPlatformUsernameAndRepoNameAndAnchorTypeAndAnchorIdOrderByEventTimestampAsc(
                 anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(java.util.Optional.of(pr));
@@ -272,8 +272,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var pr = prEntity("e1", "slint-ui/slint", "11940",
                 "My feature", "Opened PR #11940: My feature");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(pr));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(pr));
             when(eventRepository.findFirstByPlatformUsernameAndRepoNameAndAnchorTypeAndAnchorIdOrderByEventTimestampAsc(
                 anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(java.util.Optional.of(pr));
@@ -288,6 +288,131 @@ class GitActivityControllerTest implements ControllerTest {
         }
     }
 
+    // ── platform tagging + platform-aware anchor URLs (GitHub vs Bitbucket) ────
+
+    @Nested
+    class PlatformAwareAnchorUrl {
+
+        @SuppressWarnings("unchecked")
+        @Test
+        void ensureGitHubPrAnchorHasGithubPlatformAndPullUrl() throws Exception {
+            stubCommonDependencies("tronical");
+            final var pr = prEntity("e1", "slint-ui/slint", "11950",
+                "Upgrade deps", "Opened PR #11950: Upgrade deps");
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(pr));
+            when(eventRepository.findFirstByPlatformUsernameAndRepoNameAndAnchorTypeAndAnchorIdOrderByEventTimestampAsc(
+                anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(java.util.Optional.of(pr));
+
+            final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
+                .andExpect(status().isOk())
+                .andReturn();
+
+            final List<ActivityAnchor> prAnchors = (List<ActivityAnchor>)
+                result.getModelAndView().getModel().get("prAnchors");
+            assertThat(prAnchors).hasSize(1);
+            assertThat(prAnchors.get(0).platform()).isEqualTo("GITHUB");
+            assertThat(prAnchors.get(0).anchorUrl()).isEqualTo("https://github.com/slint-ui/slint/pull/11950");
+        }
+
+        @SuppressWarnings("unchecked")
+        @Test
+        void ensureBitbucketPrAnchorHasBitbucketPlatformAndPullRequestsUrl() throws Exception {
+            stubCommonDependencies("tronical");
+            final var pr = prEntity("e1", "my-workspace/my-repo", "42",
+                "Add feature", "Opened PR #42: Add feature");
+            pr.setPlatform("BITBUCKET");
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(pr));
+            when(eventRepository.findFirstByPlatformUsernameAndRepoNameAndAnchorTypeAndAnchorIdOrderByEventTimestampAsc(
+                anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(java.util.Optional.of(pr));
+
+            final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
+                .andExpect(status().isOk())
+                .andReturn();
+
+            final List<ActivityAnchor> prAnchors = (List<ActivityAnchor>)
+                result.getModelAndView().getModel().get("prAnchors");
+            assertThat(prAnchors).hasSize(1);
+            assertThat(prAnchors.get(0).platform()).isEqualTo("BITBUCKET");
+            assertThat(prAnchors.get(0).anchorUrl()).isEqualTo("https://bitbucket.org/my-workspace/my-repo/pull-requests/42");
+        }
+
+        @SuppressWarnings("unchecked")
+        @Test
+        void ensureBitbucketIssueAnchorUsesIssuesPath() throws Exception {
+            stubCommonDependencies("tronical");
+            final var issue = issueEntity("e9", "my-workspace/my-repo", "7",
+                "Bug report", "Opened issue #7: Bug report");
+            issue.setPlatform("BITBUCKET");
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(issue));
+
+            final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
+                .andExpect(status().isOk())
+                .andReturn();
+
+            final List<ActivityAnchor> issueAnchors = (List<ActivityAnchor>)
+                result.getModelAndView().getModel().get("issueAnchors");
+            assertThat(issueAnchors).hasSize(1);
+            assertThat(issueAnchors.get(0).platform()).isEqualTo("BITBUCKET");
+            assertThat(issueAnchors.get(0).anchorUrl()).isEqualTo("https://bitbucket.org/my-workspace/my-repo/issues/7");
+        }
+    }
+
+    // ── identity gate: Bitbucket-only users (no verified GitHub login) ─────────
+
+    @Nested
+    class IdentityGate {
+
+        @SuppressWarnings("unchecked")
+        @Test
+        void ensureBitbucketOnlyUserSeesActivityWithoutVerifiedGithubLogin() throws Exception {
+            stubCommonDependencies("tronical");
+            final UserSettings bbSettings = mock(UserSettings.class);
+            when(bbSettings.githubLoginVerified()).thenReturn(false);
+            when(bbSettings.githubLogin()).thenReturn(java.util.Optional.empty());
+            when(bbSettings.showStandaloneCommits()).thenReturn(false);
+            when(userSettingsService.getUserSettings(any())).thenReturn(bbSettings);
+            final GitOAuthTokenEntity token = mock(GitOAuthTokenEntity.class);
+            when(token.getPlatformAccountId()).thenReturn("bb-acct-123");
+            when(oAuthTokenRepository.findByUserLocalId(any())).thenReturn(List.of(token));
+
+            final var bbPr = prEntity("e1", "workspace/repo", "5", "Add API", "Opened PR #5: Add API");
+            bbPr.setPlatform("BITBUCKET");
+            bbPr.setPlatformUsername("bb-acct-123");
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(bbPr));
+
+            final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
+                .andExpect(status().isOk())
+                .andExpect(view().name("github-activity/index"))
+                .andReturn();
+
+            final List<ActivityAnchor> prAnchors = (List<ActivityAnchor>)
+                result.getModelAndView().getModel().get("prAnchors");
+            assertThat(prAnchors).hasSize(1);
+            assertThat(prAnchors.get(0).platform()).isEqualTo("BITBUCKET");
+            assertThat(prAnchors.get(0).anchorUrl()).isEqualTo("https://bitbucket.org/workspace/repo/pull-requests/5");
+        }
+
+        @Test
+        void ensureNoLinkedIdentityShowsTheLinkAccountPage() throws Exception {
+            stubCommonDependencies("tronical");
+            final UserSettings noneSettings = mock(UserSettings.class);
+            when(noneSettings.githubLoginVerified()).thenReturn(false);
+            when(noneSettings.githubLogin()).thenReturn(java.util.Optional.empty());
+            when(userSettingsService.getUserSettings(any())).thenReturn(noneSettings);
+            when(oAuthTokenRepository.findByUserLocalId(any())).thenReturn(List.of());
+
+            perform(get("/github-activity").with(oidcSubject("user-uuid")))
+                .andExpect(status().isOk())
+                .andExpect(view().name("github-activity/no-github-login"));
+        }
+    }
+
     // ── review outcome derivation ─────────────────────────────────────────────
 
     @Nested
@@ -299,8 +424,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var review = reviewEntity("e1", "slint-ui/slint", "11958",
                 "Accessibility", "Approved PR #11958: Accessibility");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(review));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(review));
 
             final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andReturn();
@@ -316,8 +441,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var review = reviewEntity("e1", "slint-ui/slint", "11957",
                 "Data Transfer", "Reviewed PR #11957: Data Transfer");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(review));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(review));
 
             final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andReturn();
@@ -333,8 +458,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var review = reviewEntity("e1", "slint-ui/slint", "11957",
                 "Data Transfer", "Requested changes on PR #11957: Data Transfer");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(review));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(review));
 
             final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andReturn();
@@ -359,8 +484,8 @@ class GitActivityControllerTest implements ControllerTest {
             final var close = issueEntity("e2", "slint-ui/slint", "11949",
                 "Keys bug", "Closed issue #11949: Keys bug");
             close.setEventTimestamp(Instant.parse("2026-06-03T18:00:00Z"));
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(open, close));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(open, close));
 
             final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andReturn();
@@ -376,8 +501,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var comment = issueEntity("e1", "slint-ui/slint", "11876",
                 "Skia error", "Commented on issue #11876: Skia error");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(comment));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(comment));
 
             final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andReturn();
@@ -399,8 +524,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var commit = commitEntity("abc123def456abc123def456abc123def456abc1",
                 "slint-ui/slint", "nigel/my-feature", "Very simple screen");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(commit));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(commit));
             when(eventRepository.findDistinctRepoAndHeadBranchesByUsernameUpToDate(anyString(), any()))
                 .thenReturn(Set.of("slint-ui/slint|nigel/my-feature"));
 
@@ -419,8 +544,8 @@ class GitActivityControllerTest implements ControllerTest {
             final var createEvent = entity("e-create", "CreateEvent", "slint-ui/slint",
                 "REPO", "nigel/my-feature", "nigel/my-feature",
                 "🌿", "Created branch nigel/my-feature", Instant.parse("2026-06-03T11:00:00Z"));
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(createEvent));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(createEvent));
 
             final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andReturn();
@@ -436,8 +561,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var commit = commitEntity("abc123def456abc123def456abc123def456abc1",
                 "LeonMatthes/slint", "fix-tree-sitter-grammar", "Setup harness");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(commit));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(commit));
             when(eventRepository.findDistinctRepoAndHeadBranchesByUsernameUpToDate(anyString(), any()))
                 .thenReturn(Set.of("LeonMatthes/slint|fix-tree-sitter-grammar"));
 
@@ -461,8 +586,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var commit = commitEntity("abc123def456abc123def456abc123def456abc1",
                 "slint-ui/slint", "nigel/my-feature", "Fix crash");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(commit));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(commit));
             when(eventRepository.findDistinctRepoAndHeadBranchesByUsernameUpToDate(anyString(), any()))
                 .thenReturn(Set.of("slint-ui/slint|nigel/my-feature"));
 
@@ -494,8 +619,8 @@ class GitActivityControllerTest implements ControllerTest {
         void ensureCommitsBeforePrOpenedShowAsStandalone() throws Exception {
             stubCommonDependencies("tronical");
             final var commit = commitEntity("abc123", "slint-ui/slint", "nigel/my-feature", "Initial commit");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(commit));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(commit));
             when(eventRepository.findDistinctRepoAndHeadBranchesByUsernameUpToDate(anyString(), any()))
                 .thenReturn(Set.of());
 
@@ -516,8 +641,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var commit = commitEntity("abc123def456abc123def456abc123def456abc1",
                 "LeonMatthes/slint", "fix-tree-sitter-grammar", "Setup harness");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(commit));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(commit));
             when(eventRepository.findDistinctRepoAndHeadBranchesByUsernameUpToDate(anyString(), any()))
                 .thenReturn(Set.of("LeonMatthes/slint|fix-tree-sitter-grammar"));
 
@@ -561,8 +686,8 @@ class GitActivityControllerTest implements ControllerTest {
                 "PR", "11952", "Expose Keys API",
                 "💬", "Commented on PR #11952: Expose Keys API — Still missing from docs",
                 Instant.parse("2026-06-03T14:00:00Z"));
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(prComment));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(prComment));
 
             final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andReturn();
@@ -588,8 +713,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var pr = prEntity("e1", "slint-ui/slint", "11950",
                 "Upgrade deps", "Merged PR #11950: Upgrade deps");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(pr));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(pr));
             when(eventRepository.findFirstByPlatformUsernameAndRepoNameAndAnchorTypeAndAnchorIdOrderByEventTimestampAsc(
                 anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(java.util.Optional.of(pr));
@@ -608,8 +733,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var pr = prEntity("e1", "slint-ui/slint", "11950",
                 "", "Merged PR #11950: Upgrade deps");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(pr));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(pr));
             when(eventRepository.findFirstByPlatformUsernameAndRepoNameAndAnchorTypeAndAnchorIdOrderByEventTimestampAsc(
                 anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(java.util.Optional.of(pr));
@@ -634,8 +759,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final String sha = "abc1234567890abcdef1234567890abcdef123456";
             final var commit = commitEntity(sha, "slint-ui/slint", "simon/license", "Replace cargo-about");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(commit));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(commit));
 
             final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andReturn();
@@ -654,8 +779,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var review = reviewEntity("e1", "slint-ui/slint", "11958",
                 "Accessibility", "Approved PR #11958: Accessibility");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(review));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(review));
 
             final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andReturn();
@@ -681,8 +806,8 @@ class GitActivityControllerTest implements ControllerTest {
             final var c2 = entity("tronical_commit_sha2", "PushEvent", "slint-ui/slint",
                 "REPO", "simon/license", "simon/license",
                 "📝", "Replace cargo-about", Instant.parse("2026-06-03T17:05:00Z"));
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(c1, c2));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(c1, c2));
 
             final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andReturn();
@@ -699,8 +824,8 @@ class GitActivityControllerTest implements ControllerTest {
     @Test
     void ensureHasActivityIsFalseWhenNoEvents() throws Exception {
         stubCommonDependencies("tronical");
-        when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-            anyString(), any(), any())).thenReturn(List.of());
+        when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+            any(), any(), any())).thenReturn(List.of());
 
         perform(get("/github-activity").with(oidcSubject("user-uuid")))
             .andExpect(status().isOk())
@@ -714,8 +839,8 @@ class GitActivityControllerTest implements ControllerTest {
         // showStandaloneCommits setting. Commit-only gating is covered by StandaloneCommitsToggle.
         final var issue = issueEntity("e1", "slint-ui/slint", "11949",
             "Keys bug", "Opened issue #11949: Keys bug");
-        when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-            anyString(), any(), any())).thenReturn(List.of(issue));
+        when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+            any(), any(), any())).thenReturn(List.of(issue));
 
         perform(get("/github-activity").with(oidcSubject("user-uuid")))
             .andExpect(status().isOk())
@@ -732,8 +857,8 @@ class GitActivityControllerTest implements ControllerTest {
         void ensureSingleEventUsesMinSuggestedFloor() throws Exception {
             stubCommonDependencies("tronical");
             final var commit = commitEntity("sha1", "slint-ui/slint", "simon/license", "Single commit");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(commit));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(commit));
 
             final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andExpect(status().isOk())
@@ -755,8 +880,8 @@ class GitActivityControllerTest implements ControllerTest {
             final var c2 = entity("tronical_commit_sha2", "PushEvent", "slint-ui/slint",
                 "REPO", "simon/license", "simon/license",
                 "📝", "Commit B", Instant.parse("2026-06-03T15:00:00Z"));
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(c1, c2));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(c1, c2));
 
             final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andReturn();
@@ -777,8 +902,8 @@ class GitActivityControllerTest implements ControllerTest {
             final var c2 = entity("tronical_commit_sha2", "PushEvent", "slint-ui/slint",
                 "REPO", "simon/license", "simon/license",
                 "📝", "Commit B", Instant.parse("2026-06-03T14:22:00Z"));
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(c1, c2));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(c1, c2));
 
             final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andReturn();
@@ -801,8 +926,8 @@ class GitActivityControllerTest implements ControllerTest {
             final var c2 = entity("tronical_commit_sha2", "PushEvent", "slint-ui/slint",
                 "REPO", "simon/license", "simon/license",
                 "📝", "Commit B", Instant.parse("2026-06-03T14:20:00Z"));
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(c1, c2));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(c1, c2));
 
             final var result = perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andReturn();
@@ -847,7 +972,7 @@ class GitActivityControllerTest implements ControllerTest {
         @Test
         void ensureSearchReturnsEmptyResultsWhenRepositoryReturnsNothing() throws Exception {
             stubCommonDependencies("tronical");
-            when(eventRepository.searchEvents(anyString(), anyString(), any(), any()))
+            when(eventRepository.searchEvents(anyString(), any(), any(), any()))
                 .thenReturn(List.of());
 
             perform(get("/github-activity/search").param("q", "nomatch").with(oidcSubject("user-uuid")))
@@ -905,7 +1030,7 @@ class GitActivityControllerTest implements ControllerTest {
         @Test
         void ensureSearchUsesDefaultDateRangeOfLast30DaysWhenNoneProvided() throws Exception {
             stubCommonDependencies("tronical");
-            when(eventRepository.searchEvents(anyString(), anyString(), any(), any()))
+            when(eventRepository.searchEvents(anyString(), any(), any(), any()))
                 .thenReturn(List.of());
 
             perform(get("/github-activity/search").param("q", "slint").with(oidcSubject("user-uuid")))
@@ -923,7 +1048,7 @@ class GitActivityControllerTest implements ControllerTest {
         @Test
         void ensureSearchRespectsExplicitDateRangeParameters() throws Exception {
             stubCommonDependencies("tronical");
-            when(eventRepository.searchEvents(anyString(), anyString(), any(), any()))
+            when(eventRepository.searchEvents(anyString(), any(), any(), any()))
                 .thenReturn(List.of());
 
             perform(get("/github-activity/search")
@@ -959,7 +1084,7 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             final var pr = prEntity("e1", "slint-ui/slint", "100", "Fix bug", "Merged PR #100: Fix bug");
             pr.setLoggedAt(Instant.parse("2026-06-03T12:00:00Z"));
-            when(eventRepository.searchEvents(anyString(), anyString(), any(), any()))
+            when(eventRepository.searchEvents(anyString(), any(), any(), any()))
                 .thenReturn(List.of(pr));
 
             final var result = perform(get("/github-activity/search").param("q", "slint").with(oidcSubject("user-uuid")))
@@ -980,8 +1105,8 @@ class GitActivityControllerTest implements ControllerTest {
         @Test
         void ensureLoggedDurationAbsentWhenNoEntriesLogged() throws Exception {
             stubCommonDependencies("tronical");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of());
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of());
 
             perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andExpect(status().isOk())
@@ -991,8 +1116,8 @@ class GitActivityControllerTest implements ControllerTest {
         @Test
         void ensureLoggedDurationFormattedAsHoursAndMinutes() throws Exception {
             stubCommonDependencies("tronical");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of());
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of());
 
             final de.focusshift.zeiterfassung.timeentry.TimeEntry entry =
                 mock(de.focusshift.zeiterfassung.timeentry.TimeEntry.class);
@@ -1008,8 +1133,8 @@ class GitActivityControllerTest implements ControllerTest {
         @Test
         void ensureLoggedDurationFormattedAsHoursOnlyWhenNoRemainingMinutes() throws Exception {
             stubCommonDependencies("tronical");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of());
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of());
 
             final de.focusshift.zeiterfassung.timeentry.TimeEntry entry =
                 mock(de.focusshift.zeiterfassung.timeentry.TimeEntry.class);
@@ -1025,8 +1150,8 @@ class GitActivityControllerTest implements ControllerTest {
         @Test
         void ensureLoggedDurationFormattedAsMinutesOnlyWhenLessThanOneHour() throws Exception {
             stubCommonDependencies("tronical");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of());
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of());
 
             final de.focusshift.zeiterfassung.timeentry.TimeEntry entry =
                 mock(de.focusshift.zeiterfassung.timeentry.TimeEntry.class);
@@ -1042,8 +1167,8 @@ class GitActivityControllerTest implements ControllerTest {
         @Test
         void ensureLoggedDurationSumsMultipleEntries() throws Exception {
             stubCommonDependencies("tronical");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of());
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of());
 
             final de.focusshift.zeiterfassung.timeentry.TimeEntry e1 =
                 mock(de.focusshift.zeiterfassung.timeentry.TimeEntry.class);
@@ -1189,8 +1314,8 @@ class GitActivityControllerTest implements ControllerTest {
         void ensureShowStandaloneCommitsFalseByDefault() throws Exception {
             stubCommonDependencies("tronical");
             final var commit = commitEntity("sha1", "slint-ui/slint", "main", "Fix crash");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(commit));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(commit));
 
             perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andExpect(status().isOk())
@@ -1212,8 +1337,8 @@ class GitActivityControllerTest implements ControllerTest {
             when(gitHubProvider.getRateLimitTotal()).thenReturn(5000);
             when(eventRepository.findDistinctRepoAndHeadBranchesByUsernameUpToDate(anyString(), any())).thenReturn(Set.of());
             when(workingTimeSettingsService.getWorkingTimeSettings()).thenReturn(WorkingTimeSettings.DEFAULT);
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of());
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of());
 
             perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andExpect(status().isOk())
@@ -1225,8 +1350,8 @@ class GitActivityControllerTest implements ControllerTest {
         void ensureHasActivityFalseForCommitOnlyDayWhenStandaloneCommitsDisabled() throws Exception {
             stubCommonDependencies("tronical");
             final var commit = commitEntity("sha1", "slint-ui/slint", "main", "Fix crash");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(commit));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(commit));
 
             perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andExpect(status().isOk())
@@ -1250,8 +1375,8 @@ class GitActivityControllerTest implements ControllerTest {
             when(eventRepository.findDistinctRepoAndHeadBranchesByUsernameUpToDate(anyString(), any())).thenReturn(Set.of());
             when(workingTimeSettingsService.getWorkingTimeSettings()).thenReturn(WorkingTimeSettings.DEFAULT);
             final var commit = commitEntity("sha1", "slint-ui/slint", "main", "Fix crash");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of(commit));
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of(commit));
 
             perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andExpect(status().isOk())
@@ -1267,8 +1392,8 @@ class GitActivityControllerTest implements ControllerTest {
         @Test
         void ensureAutoSyncTrueWhenSyncConfiguredAndNeverSyncedToday() throws Exception {
             stubCommonDependencies("tronical");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of());
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of());
 
             perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andExpect(status().isOk())
@@ -1278,8 +1403,8 @@ class GitActivityControllerTest implements ControllerTest {
         @Test
         void ensureAutoSyncFalseForPastDate() throws Exception {
             stubCommonDependencies("tronical");
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of());
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of());
 
             perform(get("/github-activity").with(oidcSubject("user-uuid")).param("date", "2026-01-01"))
                 .andExpect(status().isOk())
@@ -1290,8 +1415,8 @@ class GitActivityControllerTest implements ControllerTest {
         void ensureAutoSyncFalseWhenAlreadySyncedToday() throws Exception {
             stubCommonDependencies("tronical");
             when(gitHubProvider.getLastSyncTime("tronical")).thenReturn(Instant.now());
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of());
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of());
 
             perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andExpect(status().isOk())
@@ -1303,8 +1428,8 @@ class GitActivityControllerTest implements ControllerTest {
             stubCommonDependencies("tronical");
             when(gitHubProvider.isRateLimitSafe()).thenReturn(false);
             when(gitHubProvider.getRateLimitReset()).thenReturn(Instant.now().plusSeconds(300));
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of());
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of());
 
             perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andExpect(status().isOk())
@@ -1315,8 +1440,8 @@ class GitActivityControllerTest implements ControllerTest {
         void ensureAutoSyncFalseWhenSyncNotConfigured() throws Exception {
             stubCommonDependencies("tronical");
             when(gitHubProvider.isConfigured()).thenReturn(false);
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of());
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of());
 
             perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andExpect(status().isOk())
@@ -1327,8 +1452,8 @@ class GitActivityControllerTest implements ControllerTest {
         void ensureAutoSyncFalseWhenDayIsLocked() throws Exception {
             stubCommonDependencies("tronical");
             when(timeEntryLockService.isLocked(any(LocalDate.class))).thenReturn(true);
-            when(eventRepository.findByPlatformUsernameAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
-                anyString(), any(), any())).thenReturn(List.of());
+            when(eventRepository.findByPlatformUsernameInAndEventTimestampBetweenAndDismissedFalseOrderByEventTimestampAsc(
+                any(), any(), any())).thenReturn(List.of());
 
             perform(get("/github-activity").with(oidcSubject("user-uuid")))
                 .andExpect(status().isOk())
