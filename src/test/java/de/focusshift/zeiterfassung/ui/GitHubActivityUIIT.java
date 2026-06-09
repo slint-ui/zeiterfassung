@@ -69,7 +69,8 @@ class GitHubActivityUIIT {
     void setUpDefaultMocks() {
         when(gitHubProvider.isConfigured()).thenReturn(true);
         when(gitHubProvider.missingConfig()).thenReturn("");
-        when(gitHubProvider.getLastSyncTime(anyString())).thenReturn(null);
+        // synced "today" so autoSync=false — otherwise the first-load /sync navigation races the UI interactions
+        when(gitHubProvider.getLastSyncTime(anyString())).thenReturn(Instant.now());
         when(gitHubProvider.isRateLimitSafe()).thenReturn(true);
         when(gitHubProvider.getRateLimitReset()).thenReturn(java.time.Instant.MIN);
         when(gitHubProvider.getRateLimitPercent()).thenReturn(100);
