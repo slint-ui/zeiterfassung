@@ -94,6 +94,7 @@
                   th:insert="~{timeentries/fragments/time-entry-form::timeentry-slot-form(formAction=${action}, timeEntry=${timeEntry}, actions=~{::timeentry-slot-form-actions-new}, disabled=false, class='timeslot-form-new')}"
                 ></th:block>
               </th:block>
+
               <th:block
                 th:if="${viewedUser != null}"
                 th:object="${timeEntry}"

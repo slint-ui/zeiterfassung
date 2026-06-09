@@ -33,7 +33,7 @@ class ReportCsvServiceIT extends SingleTenantTestContainersBase {
     private UserManagementService userManagementService;
 
     @ParameterizedTest
-    @CsvSource({"de,Datum;Vorname;Nachname;Von;Bis;erfasste Stunden;Kommentar;Pause", "en,Date;Given name;Family name;From;To;Worked hours;Comment;Break"})
+    @CsvSource({"de,Datum;Vorname;Nachname;Von;Bis;erfasste Stunden;Kommentar;Pause;Abwesenheit", "en,Date;Given name;Family name;From;To;Worked hours;Comment;Break;Absence"})
     void ensureI18nHeader(String languageTag, String expectedHeader) {
         final PrintWriter printWriter = mock(PrintWriter.class);
 
