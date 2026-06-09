@@ -5,123 +5,571 @@
   th:class="|theme-${theme}|"
   xmlns:th="http://www.thymeleaf.org"
 >
-  <head
-    th:replace="~{_layout::head(title=~{::title}, scriptsDefer=~{})}"
-  >
+  <head th:replace="~{_layout::head(title=~{::title}, scriptsDefer=~{::scriptsDefer})}">
     <title th:text="#{github-activity.page.title}">GitHub Activity</title>
+    <th:block th:fragment="scriptsDefer">
+      <script type="module" src="" th:src="@{/assets/time-entries.js}"></script>
+    </th:block>
   </head>
   <body th:replace="~{_layout::body(content=~{::content}, search=~{::search})}">
     <th:block th:ref="search">
-      <div
-        th:replace="~{fragments/user-search::user-search(placeholder=#{user-search.input.placeholder})}"
-      ></div>
+      <div th:replace="~{fragments/user-search::user-search(placeholder=#{user-search.input.placeholder})}"></div>
     </th:block>
 
     <th:block th:fragment="content">
-      <main class="content-container content--max-w flex flex-col">
-        <div class="flex-1 flex flex-col mx-auto w-full max-w-7xl px-4 desktop:px-8">
 
-          <h1 class="text-xl font-bold mb-6" th:text="#{github-activity.page.title}">GitHub Activity</h1>
+      <main class="content-container content--max-w flex flex-col">
+        <div class="flex-1 flex flex-col mx-auto w-full max-w-7xl px-4 desktop:px-8 pb-24">
+
+          <h1 class="text-xl font-bold mb-1" th:text="#{github-activity.page.title}">GitHub Activity</h1>
+          <p class="text-sm text-gray-500 dark:text-zinc-400 mb-6" th:text="#{github-activity.tip}">
+            Review your GitHub work items below. Adjust the suggested time and click "Log it" to create a time entry.
+          </p>
 
           <!-- Date navigation -->
           <div class="flex items-center gap-4 mb-6">
             <a th:href="@{/github-activity(date=${prevDate})}" class="button-secondary">&#9664;</a>
             <span th:text="${#temporals.format(date, 'EEEE, d MMMM yyyy')}">Monday, 2 June 2026</span>
             <a th:href="@{/github-activity(date=${nextDate})}" class="button-secondary">&#9654;</a>
+            <div th:if="${syncConfigured}" class="ml-auto flex items-center gap-3">
+              <span th:if="${lastSyncedAt != null}"
+                    class="text-xs text-gray-400 dark:text-zinc-500">
+                <span th:text="#{github-activity.last-synced}">Last synced:</span>
+                <span th:text="${#temporals.format(lastSyncedAt, 'd MMM HH:mm')}"></span>
+              </span>
+              <span th:if="${lastSyncedAt == null}"
+                    class="text-xs text-gray-400 dark:text-zinc-500"
+                    th:text="#{github-activity.never-synced}">Never synced</span>
+              <form th:action="@{/github-activity/sync}" method="post">
+                <input type="hidden" name="date" th:value="${date}"/>
+                <button type="submit" class="button-secondary text-sm" th:text="#{github-activity.sync-now}">↻ Refresh</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Sync not configured notice -->
+          <div th:if="${!syncConfigured}"
+               data-testid="github-activity-sync-not-configured"
+               class="mb-4 flex items-center gap-2 px-4 py-2 rounded bg-blue-50 dark:bg-sky-950 border border-blue-200 dark:border-sky-800 text-sm text-blue-800 dark:text-sky-200">
+            <span>ℹ️</span>
+            <span>
+              <span th:text="#{github-activity.sync-not-configured}">GitHub App sync is not configured.</span>
+              <span class="font-mono ml-1" th:text="${syncMissingConfig}"></span>
+            </span>
+          </div>
+
+          <!-- Day locked notice -->
+          <div th:if="${isLocked}"
+               class="mb-4 flex items-center gap-2 px-4 py-2 rounded bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 text-sm text-amber-800 dark:text-amber-200">
+            <span>🔒</span>
+            <span th:text="#{github-activity.locked}">This day is locked. Time entries can no longer be added.</span>
           </div>
 
           <!-- Empty state -->
-          <p th:if="${#lists.isEmpty(groups)}" class="text-gray-500 dark:text-zinc-400" th:text="#{github-activity.empty}">
+          <p th:if="${!hasActivity}" data-testid="github-activity-empty" class="text-gray-500 dark:text-zinc-400"
+             th:text="${syncConfigured} ? #{github-activity.empty} : #{github-activity.empty-no-sync}">
             No GitHub activity found for this day.
           </p>
 
-          <!-- Groups -->
-          <div th:each="group, groupStat : ${groups}" class="mb-6 border border-gray-200 dark:border-zinc-700 rounded-lg overflow-hidden">
-
-            <!-- Group header -->
-            <div class="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700">
-              <span class="font-semibold text-blue-700 dark:text-sky-400" th:text="${group.repoName()}"></span>
-              <div class="flex gap-2">
-                <!-- Add all individually -->
-                <form th:action="@{/github-activity/create-entries}" method="post">
-                  <input type="hidden" name="date" th:value="${date}"/>
-                  <input type="hidden" name="userLocalId" th:value="${userLocalId}"/>
-                  <th:block th:each="ev : ${group.events()}">
-                    <input type="hidden" name="comment" th:value="${ev.prefilledComment()}"/>
-                    <input type="hidden" name="startTime" th:value="${ev.startTime()}"/>
+          <!-- ── Pull Requests ──────────────────────────────────────────── -->
+          <section th:if="${!#lists.isEmpty(prAnchors)}" data-testid="github-activity-pr-section" class="mb-8">
+            <h2 class="text-base font-semibold text-gray-700 dark:text-zinc-200 mb-2">Pull Requests</h2>
+            <div class="border border-gray-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 dark:bg-zinc-800 text-xs text-gray-500 dark:text-zinc-400 uppercase tracking-wide">
+                  <tr>
+                    <th class="px-4 py-2 text-left">Repo</th>
+                    <th class="px-4 py-2 text-left">PR</th>
+                    <th class="px-4 py-2 text-left">Title</th>
+                    <th class="px-4 py-2 text-left">Opened</th>
+                    <th class="px-4 py-2 text-left">Status</th>
+                    <th class="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-zinc-800">
+                  <th:block th:each="anchor, stat : ${prAnchors}">
+                    <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+                      <td class="px-4 py-3 font-mono text-xs text-gray-500 dark:text-zinc-400 whitespace-nowrap" th:text="${anchor.repoName()}"></td>
+                      <td class="px-4 py-3 whitespace-nowrap">
+                        <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                           target="_blank" rel="noopener"
+                           class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-800">
+                          #<span th:text="${anchor.anchorId()}"></span>
+                        </a>
+                      </td>
+                      <td class="px-4 py-3">
+                        <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                           target="_blank" rel="noopener"
+                           th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
+                           class="text-gray-800 dark:text-zinc-100 hover:underline"
+                           th:text="${anchor.anchorTitle()}"></a>
+                        <span th:if="${#strings.isEmpty(anchor.anchorTitle())}"
+                              class="text-gray-300 dark:text-zinc-600 text-xs italic">No title</span>
+                      </td>
+                      <td class="px-4 py-3 text-xs text-gray-400 dark:text-zinc-500 whitespace-nowrap">
+                        <span th:if="${anchor.openedDate() != null}" th:text="${anchor.openedDate()}"></span>
+                        <span th:if="${anchor.openedDate() == null}" class="text-gray-300 dark:text-zinc-600">Today</span>
+                      </td>
+                      <td class="px-4 py-3 whitespace-nowrap">
+                        <span th:if="${anchor.prStatus() == 'Merged'}"
+                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+                          Merged
+                        </span>
+                        <span th:if="${anchor.prStatus() == 'Closed'}"
+                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                          Closed
+                        </span>
+                        <span th:if="${anchor.prStatus() == 'Open'}"
+                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                          Open
+                        </span>
+                      </td>
+                      <td class="px-4 py-3 text-right whitespace-nowrap">
+                        <th:block th:if="${!isLocked}">
+                          <div class="flex items-center justify-end gap-2">
+                            <span class="text-xs text-gray-400 dark:text-zinc-500">
+                              <span th:text="${anchor.windowStart()}"></span><span th:if="${anchor.windowEnd() != null}">–<span th:text="${anchor.windowEnd()}"></span></span>
+                            </span>
+                            <span th:if="${anchor.logged()}"
+                                  th:data-testid="|pr-logged-${stat.index}|"
+                                  class="shrink-0 text-xs text-green-600 dark:text-green-400 font-medium">✓ Logged</span>
+                            <th:block th:if="${!anchor.logged()}">
+                              <input type="text" th:id="|pr-dur-${stat.index}|" th:value="${anchor.suggestedDuration()}"
+                                     class="border border-gray-300 dark:border-zinc-600 rounded px-2 py-0.5 text-xs w-16 dark:bg-zinc-900 dark:text-zinc-100"/>
+                              <button type="button" class="button-main-green text-xs"
+                                      th:data-testid="|pr-log-it-${stat.index}|"
+                                      th:data-comment="${anchor.prefilledComment()}"
+                                      th:data-date="${date}"
+                                      th:data-start="${anchor.windowStart()}"
+                                      th:data-duration-id="|pr-dur-${stat.index}|"
+                                      th:data-user-local-id="${userLocalId}"
+                                      th:data-frame-id="|pr-frame-${stat.index}|"
+                                      th:data-repo-name="${anchor.repoName()}"
+                                      th:data-anchor-type="${anchor.anchorType()}"
+                                      th:data-anchor-id="${anchor.anchorId()}"
+                                      onclick="ghLogAnchor(this)"
+                                      th:text="#{github-activity.log-it}">Log it ↓</button>
+                            </th:block>
+                          </div>
+                        </th:block>
+                      </td>
+                    </tr>
+                    <tr th:id="|pr-frame-row-${stat.index}|">
+                      <td colspan="6" class="p-0">
+                        <turbo-frame th:id="|pr-frame-${stat.index}|" class="block"></turbo-frame>
+                      </td>
+                    </tr>
                   </th:block>
-                  <button type="submit" class="button-secondary text-sm" th:text="#{github-activity.add-all-individually}">Add all individually</button>
-                </form>
-                <!-- Add as one combined entry -->
-                <form th:action="@{/github-activity/create-entries}" method="post">
-                  <input type="hidden" name="date" th:value="${date}"/>
-                  <input type="hidden" name="userLocalId" th:value="${userLocalId}"/>
-                  <input type="hidden" name="comment" th:value="${group.combinedComment()}"/>
-                  <button type="submit" class="button-secondary text-sm" th:text="#{github-activity.add-as-one-entry}">Add as one entry</button>
-                </form>
-              </div>
+                </tbody>
+              </table>
             </div>
+          </section>
 
-            <!-- Events -->
-            <div th:each="event, iterStat : ${group.events()}"
-                 class="px-4 py-3"
-                 th:classappend="${!iterStat.last ? 'border-b border-gray-100 dark:border-zinc-800' : ''}">
-              <div class="flex items-start justify-between gap-4">
-                <div class="flex items-start gap-3 flex-1 min-w-0">
-                  <span class="text-xl shrink-0 mt-0.5" th:text="${event.icon()}"></span>
-                  <div class="flex flex-col min-w-0">
-                    <span class="font-medium" th:text="${event.title()}"></span>
-                    <span class="text-sm text-gray-500 dark:text-zinc-400 truncate"
-                          th:if="${!#strings.isEmpty(event.detail())}"
-                          th:text="${event.detail()}"></span>
-                  </div>
-                </div>
-                <div class="flex items-center gap-3 shrink-0">
-                  <span class="text-sm text-gray-400 dark:text-zinc-500" th:text="${event.startTime()}"></span>
-                  <button
-                    type="button"
-                    class="button-secondary text-sm"
-                    th:data-comment="${event.prefilledComment()}"
-                    th:data-date="${date}"
-                    th:data-start="${event.startTime()}"
-                    th:data-user-local-id="${userLocalId}"
-                    th:data-frame-id="|frame-${groupStat.index}-${iterStat.index}|"
-                    onclick="toggleInlineForm(this)"
-                    th:text="#{github-activity.add-time-entry}"
-                  >+ Add time entry</button>
-                </div>
-              </div>
-              <!-- Inline Turbo Frame -->
-              <turbo-frame
-                th:id="|frame-${groupStat.index}-${iterStat.index}|"
-                class="block mt-3"
-              ></turbo-frame>
+          <!-- ── Reviews ───────────────────────────────────────────────── -->
+          <section th:if="${!#lists.isEmpty(reviewAnchors)}" data-testid="github-activity-reviews-section" class="mb-8">
+            <h2 class="text-base font-semibold text-gray-700 dark:text-zinc-200 mb-2">Reviews</h2>
+            <div class="border border-gray-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 dark:bg-zinc-800 text-xs text-gray-500 dark:text-zinc-400 uppercase tracking-wide">
+                  <tr>
+                    <th class="px-4 py-2 text-left">Repo</th>
+                    <th class="px-4 py-2 text-left">PR</th>
+                    <th class="px-4 py-2 text-left">Title</th>
+                    <th class="px-4 py-2 text-left">Outcome</th>
+                    <th class="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-zinc-800">
+                  <th:block th:each="anchor, stat : ${reviewAnchors}">
+                    <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+                      <td class="px-4 py-3 font-mono text-xs text-gray-500 dark:text-zinc-400 whitespace-nowrap" th:text="${anchor.repoName()}"></td>
+                      <td class="px-4 py-3 whitespace-nowrap">
+                        <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                           target="_blank" rel="noopener"
+                           class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-800">
+                          #<span th:text="${anchor.anchorId()}"></span>
+                        </a>
+                      </td>
+                      <td class="px-4 py-3">
+                        <a th:href="|https://github.com/${anchor.repoName()}/pull/${anchor.anchorId()}|"
+                           target="_blank" rel="noopener"
+                           th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
+                           class="text-gray-800 dark:text-zinc-100 hover:underline"
+                           th:text="${anchor.anchorTitle()}"></a>
+                        <span th:if="${#strings.isEmpty(anchor.anchorTitle())}"
+                              class="text-gray-300 dark:text-zinc-600 text-xs italic">No title</span>
+                      </td>
+                      <td class="px-4 py-3 whitespace-nowrap">
+                        <span th:if="${anchor.reviewOutcome() == 'Approved'}"
+                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                          ✓ Approved
+                        </span>
+                        <span th:if="${anchor.reviewOutcome() == 'Changes requested'}"
+                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                          Changes requested
+                        </span>
+                        <span th:if="${anchor.reviewOutcome() == 'Commented'}"
+                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-zinc-200">
+                          Commented
+                        </span>
+                      </td>
+                      <td class="px-4 py-3 text-right whitespace-nowrap">
+                        <th:block th:if="${!isLocked}">
+                          <div class="flex items-center justify-end gap-2">
+                            <span class="text-xs text-gray-400 dark:text-zinc-500">
+                              <span th:text="${anchor.windowStart()}"></span><span th:if="${anchor.windowEnd() != null}">–<span th:text="${anchor.windowEnd()}"></span></span>
+                            </span>
+                            <span th:if="${anchor.logged()}"
+                                  th:data-testid="|rev-logged-${stat.index}|"
+                                  class="shrink-0 text-xs text-green-600 dark:text-green-400 font-medium">✓ Logged</span>
+                            <th:block th:if="${!anchor.logged()}">
+                              <input type="text" th:id="|rev-dur-${stat.index}|" th:value="${anchor.suggestedDuration()}"
+                                     class="border border-gray-300 dark:border-zinc-600 rounded px-2 py-0.5 text-xs w-16 dark:bg-zinc-900 dark:text-zinc-100"/>
+                              <button type="button" class="button-main-green text-xs"
+                                      th:data-testid="|rev-log-it-${stat.index}|"
+                                      th:data-comment="${anchor.prefilledComment()}"
+                                      th:data-date="${date}"
+                                      th:data-start="${anchor.windowStart()}"
+                                      th:data-duration-id="|rev-dur-${stat.index}|"
+                                      th:data-user-local-id="${userLocalId}"
+                                      th:data-frame-id="|rev-frame-${stat.index}|"
+                                      th:data-repo-name="${anchor.repoName()}"
+                                      th:data-anchor-type="${anchor.anchorType()}"
+                                      th:data-anchor-id="${anchor.anchorId()}"
+                                      onclick="ghLogAnchor(this)"
+                                      th:text="#{github-activity.log-it}">Log it ↓</button>
+                            </th:block>
+                          </div>
+                        </th:block>
+                      </td>
+                    </tr>
+                    <tr th:id="|rev-frame-row-${stat.index}|">
+                      <td colspan="5" class="p-0">
+                        <turbo-frame th:id="|rev-frame-${stat.index}|" class="block"></turbo-frame>
+                      </td>
+                    </tr>
+                  </th:block>
+                </tbody>
+              </table>
             </div>
+          </section>
 
-          </div>
+          <!-- ── Issues ────────────────────────────────────────────────── -->
+          <section th:if="${!#lists.isEmpty(issueAnchors)}" data-testid="github-activity-issues-section" class="mb-8">
+            <h2 class="text-base font-semibold text-gray-700 dark:text-zinc-200 mb-2">Issues</h2>
+            <div class="border border-gray-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 dark:bg-zinc-800 text-xs text-gray-500 dark:text-zinc-400 uppercase tracking-wide">
+                  <tr>
+                    <th class="px-4 py-2 text-left">Repo</th>
+                    <th class="px-4 py-2 text-left">Issue</th>
+                    <th class="px-4 py-2 text-left">Title</th>
+                    <th class="px-4 py-2 text-left">Action</th>
+                    <th class="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-zinc-800">
+                  <th:block th:each="anchor, stat : ${issueAnchors}">
+                    <tr class="hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+                      <td class="px-4 py-3 font-mono text-xs text-gray-500 dark:text-zinc-400 whitespace-nowrap" th:text="${anchor.repoName()}"></td>
+                      <td class="px-4 py-3 whitespace-nowrap">
+                        <a th:href="|https://github.com/${anchor.repoName()}/issues/${anchor.anchorId()}|"
+                           target="_blank" rel="noopener"
+                           class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-800">
+                          #<span th:text="${anchor.anchorId()}"></span>
+                        </a>
+                      </td>
+                      <td class="px-4 py-3">
+                        <a th:href="|https://github.com/${anchor.repoName()}/issues/${anchor.anchorId()}|"
+                           target="_blank" rel="noopener"
+                           th:if="${!#strings.isEmpty(anchor.anchorTitle())}"
+                           class="text-gray-800 dark:text-zinc-100 hover:underline"
+                           th:text="${anchor.anchorTitle()}"></a>
+                        <span th:if="${#strings.isEmpty(anchor.anchorTitle())}"
+                              class="text-gray-300 dark:text-zinc-600 text-xs italic">No title</span>
+                      </td>
+                      <td class="px-4 py-3 whitespace-nowrap">
+                        <span th:if="${anchor.issueAction() == 'Opened'}"
+                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                          Opened
+                        </span>
+                        <span th:if="${anchor.issueAction() == 'Closed'}"
+                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-zinc-300">
+                          Closed
+                        </span>
+                        <span th:if="${anchor.issueAction() == 'Commented'}"
+                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                          Commented
+                        </span>
+                        <span th:if="${anchor.issueAction() == 'Updated'}"
+                              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-zinc-300">
+                          Updated
+                        </span>
+                      </td>
+                      <td class="px-4 py-3 text-right whitespace-nowrap">
+                        <th:block th:if="${!isLocked}">
+                          <div class="flex items-center justify-end gap-2">
+                            <span class="text-xs text-gray-400 dark:text-zinc-500">
+                              <span th:text="${anchor.windowStart()}"></span><span th:if="${anchor.windowEnd() != null}">–<span th:text="${anchor.windowEnd()}"></span></span>
+                            </span>
+                            <span th:if="${anchor.logged()}"
+                                  th:data-testid="|iss-logged-${stat.index}|"
+                                  class="shrink-0 text-xs text-green-600 dark:text-green-400 font-medium">✓ Logged</span>
+                            <th:block th:if="${!anchor.logged()}">
+                              <input type="text" th:id="|iss-dur-${stat.index}|" th:value="${anchor.suggestedDuration()}"
+                                     class="border border-gray-300 dark:border-zinc-600 rounded px-2 py-0.5 text-xs w-16 dark:bg-zinc-900 dark:text-zinc-100"/>
+                              <button type="button" class="button-main-green text-xs"
+                                      th:data-testid="|iss-log-it-${stat.index}|"
+                                      th:data-comment="${anchor.prefilledComment()}"
+                                      th:data-date="${date}"
+                                      th:data-start="${anchor.windowStart()}"
+                                      th:data-duration-id="|iss-dur-${stat.index}|"
+                                      th:data-user-local-id="${userLocalId}"
+                                      th:data-frame-id="|iss-frame-${stat.index}|"
+                                      th:data-repo-name="${anchor.repoName()}"
+                                      th:data-anchor-type="${anchor.anchorType()}"
+                                      th:data-anchor-id="${anchor.anchorId()}"
+                                      onclick="ghLogAnchor(this)"
+                                      th:text="#{github-activity.log-it}">Log it ↓</button>
+                            </th:block>
+                          </div>
+                        </th:block>
+                      </td>
+                    </tr>
+                    <tr th:id="|iss-frame-row-${stat.index}|">
+                      <td colspan="5" class="p-0">
+                        <turbo-frame th:id="|iss-frame-${stat.index}|" class="block"></turbo-frame>
+                      </td>
+                    </tr>
+                  </th:block>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- ── Standalone Commits ────────────────────────────────────── -->
+          <section th:if="${!#lists.isEmpty(standaloneAnchors)}" data-testid="github-activity-standalone-section" class="mb-8">
+            <h2 class="text-base font-semibold text-gray-700 dark:text-zinc-200 mb-2">Standalone Commits</h2>
+
+            <div th:each="anchor, anchorStat : ${standaloneAnchors}"
+                 class="mb-3 border border-gray-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+
+              <div class="px-4 py-2 bg-gray-50 dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700">
+                <span class="text-xs font-mono text-gray-500 dark:text-zinc-400" th:text="${anchor.repoName()}"></span>
+                <span th:if="${anchor.anchorId() != null}"
+                      class="ml-2 text-xs text-gray-400 dark:text-zinc-500"
+                      th:text="${anchor.anchorId()}"></span>
+              </div>
+
+              <div class="px-4 pt-3 pb-2">
+                <div th:each="event, evStat : ${anchor.events()}"
+                     th:id="|ev-row-${anchorStat.index}-${evStat.index}|"
+                     th:class="${event.logged()} ? 'flex items-baseline gap-2 text-sm py-1 opacity-50' : 'flex items-baseline gap-2 text-sm py-1'">
+
+                  <th:block th:if="${!isLocked and !event.logged()}">
+                    <input type="checkbox"
+                           th:id="|ev-cb-${anchorStat.index}-${evStat.index}|"
+                           class="gh-cb shrink-0 mt-0.5 cursor-pointer"
+                           th:data-anchor="${anchorStat.index}"
+                           th:data-event-id="${event.eventId()}"
+                           th:data-row-id="|ev-row-${anchorStat.index}-${evStat.index}|"
+                           th:data-comment="${event.prefilledComment()}"
+                           th:data-time="${event.time()}"
+                           th:data-date="${date}"
+                           th:data-user-id="${userLocalId}"
+                           onchange="ghUpdateSelectBar(this.dataset.anchor)"/>
+                  </th:block>
+
+                  <span class="shrink-0" th:text="${event.icon()}"></span>
+                  <a th:if="${event.commitUrl() != null}"
+                     th:href="${event.commitUrl()}" target="_blank" rel="noopener"
+                     class="flex-1 text-gray-700 dark:text-zinc-300 hover:underline"
+                     th:text="${event.summary()}"></a>
+                  <span th:if="${event.commitUrl() == null}"
+                        class="flex-1 text-gray-700 dark:text-zinc-300"
+                        th:text="${event.summary()}"></span>
+                  <span class="shrink-0 text-xs text-gray-400 dark:text-zinc-500" th:text="${event.time()}"></span>
+
+                  <th:block th:if="${!isLocked and !event.logged()}">
+                    <form th:action="@{/github-activity/dismiss}" method="post" class="shrink-0">
+                      <input type="hidden" name="eventId" th:value="${event.eventId()}"/>
+                      <input type="hidden" name="date" th:value="${date}"/>
+                      <button type="submit"
+                              class="text-gray-300 dark:text-zinc-600 hover:text-red-400 dark:hover:text-red-400 text-xs px-1 leading-none"
+                              title="Hide this commit">✕</button>
+                    </form>
+                  </th:block>
+
+                  <th:block th:if="${!isLocked}">
+                    <input type="text" th:id="|ev-dur-${anchorStat.index}-${evStat.index}|" value="00:15" class="hidden"/>
+                    <span th:if="${event.logged()}"
+                          th:data-testid="|ev-logged-${anchorStat.index}-${evStat.index}|"
+                          class="shrink-0 text-xs text-green-600 dark:text-green-400 font-medium">✓ Logged</span>
+                    <button th:if="${!event.logged()}"
+                            type="button"
+                            th:id="|ev-btn-${anchorStat.index}-${evStat.index}|"
+                            th:data-testid="|ev-log-it-${anchorStat.index}-${evStat.index}|"
+                            class="button-main-green text-xs shrink-0"
+                            th:data-event-id="${event.eventId()}"
+                            th:data-comment="${event.prefilledComment()}"
+                            th:data-date="${date}"
+                            th:data-start="${event.time()}"
+                            th:data-duration-id="|ev-dur-${anchorStat.index}-${evStat.index}|"
+                            th:data-user-local-id="${userLocalId}"
+                            th:data-frame-id="|ev-frame-${anchorStat.index}-${evStat.index}|"
+                            onclick="ghLogAnchor(this)"
+                            th:text="#{github-activity.log-it}">Log it ↓</button>
+                  </th:block>
+                </div>
+
+                <turbo-frame th:if="${!isLocked and !event.logged()}"
+                             th:each="event, evStat : ${anchor.events()}"
+                             th:id="|ev-frame-${anchorStat.index}-${evStat.index}|"
+                             class="block"></turbo-frame>
+              </div>
+
+              <!-- Multi-select bar -->
+              <div th:if="${!isLocked}"
+                   th:id="|sel-bar-${anchorStat.index}|"
+                   class="hidden px-4 py-2 border-t border-blue-100 dark:border-blue-900 bg-blue-50 dark:bg-blue-950 flex items-center gap-3">
+                <span class="text-xs text-blue-600 dark:text-blue-300 flex-1" th:id="|sel-label-${anchorStat.index}|">0 selected</span>
+                <input type="text" th:id="|sel-dur-${anchorStat.index}|" value="00:15" placeholder="hh:mm"
+                       class="border border-gray-300 dark:border-zinc-600 rounded px-2 py-0.5 text-sm w-20 dark:bg-zinc-900 dark:text-zinc-100"/>
+                <button type="button"
+                        class="button-main-green text-sm"
+                        th:data-anchor="${anchorStat.index}"
+                        th:data-user-local-id="${userLocalId}"
+                        th:data-date="${date}"
+                        th:data-frame-id="|sel-frame-${anchorStat.index}|"
+                        th:data-duration-id="|sel-dur-${anchorStat.index}|"
+                        onclick="ghLogSelected(this)">Log selected ↓</button>
+              </div>
+              <turbo-frame th:if="${!isLocked}"
+                           th:id="|sel-frame-${anchorStat.index}|" class="block"></turbo-frame>
+            </div>
+          </section>
 
         </div>
-
-        <script>
-          function toggleInlineForm(btn) {
-            const frameId = btn.dataset.frameId;
-            const frame = document.getElementById(frameId);
-            if (frame.src) {
-              frame.src = '';
-              frame.innerHTML = '';
-              return;
-            }
-            const params = new URLSearchParams({
-              comment: btn.dataset.comment,
-              date: btn.dataset.date,
-              startTime: btn.dataset.start || '',
-              userLocalId: btn.dataset.userLocalId,
-              frameId: frameId
-            });
-            frame.src = '/github-activity/inline-form?' + params.toString();
-          }
-        </script>
       </main>
+
+      <script>
+        function ghLogAnchor(btn) {
+          const frameId = btn.dataset.frameId;
+          const frame = document.getElementById(frameId);
+          if (frame && frame.src) { frame.src = ''; frame.innerHTML = ''; return; }
+          const dur = document.getElementById(btn.dataset.durationId);
+          const params = new URLSearchParams({
+            comment: btn.dataset.comment, date: btn.dataset.date,
+            startTime: btn.dataset.start || '', duration: dur ? dur.value : '',
+            userLocalId: btn.dataset.userLocalId, frameId: frameId
+          });
+          if (frame) {
+            frame.src = '/github-activity/inline-form?' + params.toString();
+            frame.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            const eventId = btn.dataset.eventId;
+            frame.addEventListener('turbo:submit-end', function handler(e) {
+              if (e.detail.success) {
+                if (eventId) {
+                  ghMarkLogged(btn, frame, eventId);
+                } else {
+                  const span = document.createElement('span');
+                  span.className = 'shrink-0 text-xs text-green-600 dark:text-green-400 font-medium';
+                  span.textContent = '✓ Logged';
+                  btn.replaceWith(span);
+                  const csrf = document.querySelector('meta[name="_csrf"]')?.content || '';
+                  const params = new URLSearchParams({
+                    repoName: btn.dataset.repoName,
+                    anchorType: btn.dataset.anchorType,
+                    anchorId: btn.dataset.anchorId,
+                    date: btn.dataset.date
+                  });
+                  fetch('/github-activity/mark-anchor-logged?' + params.toString(), {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': csrf }
+                  });
+                }
+                frame.removeEventListener('turbo:submit-end', handler);
+              }
+            });
+          }
+        }
+
+        function ghUpdateSelectBar(anchorIdx) {
+          const checked = [...document.querySelectorAll(`.gh-cb[data-anchor="${anchorIdx}"]:checked`)];
+          const bar   = document.getElementById('sel-bar-' + anchorIdx);
+          const label = document.getElementById('sel-label-' + anchorIdx);
+          if (!bar) return;
+          bar.classList.toggle('hidden', checked.length === 0);
+          if (label) label.textContent = checked.length + ' commit' + (checked.length !== 1 ? 's' : '') + ' selected';
+        }
+
+        function ghLogSelected(btn) {
+          const anchorIdx = btn.dataset.anchor;
+          const checked   = [...document.querySelectorAll(`.gh-cb[data-anchor="${anchorIdx}"]:checked`)];
+          if (checked.length === 0) return;
+          const comments  = checked.map(cb => cb.dataset.comment).join('\n');
+          const times     = checked.map(cb => cb.dataset.time).sort();
+          const frameId   = btn.dataset.frameId;
+          const frame     = document.getElementById(frameId);
+          if (frame && frame.src) { frame.src = ''; frame.innerHTML = ''; return; }
+          const dur = document.getElementById(btn.dataset.durationId);
+          const params = new URLSearchParams({
+            comment: comments, date: btn.dataset.date,
+            startTime: times[0] || '', duration: dur ? dur.value : '00:15',
+            userLocalId: btn.dataset.userLocalId, frameId: frameId
+          });
+          if (frame) {
+            frame.src = '/github-activity/inline-form?' + params.toString();
+            frame.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            const selected = checked.map(cb => ({ eventId: cb.dataset.eventId, rowId: cb.dataset.rowId }));
+            frame.addEventListener('turbo:submit-end', function handler(e) {
+              if (e.detail.success) {
+                selected.forEach(({ eventId, rowId }) => ghMarkRowLogged(rowId, eventId));
+                const bar = document.getElementById('sel-bar-' + anchorIdx);
+                if (bar) bar.classList.add('hidden');
+                document.querySelectorAll(`.gh-cb[data-anchor="${anchorIdx}"]`).forEach(cb => { cb.checked = false; });
+                frame.removeEventListener('turbo:submit-end', handler);
+              }
+            });
+          }
+        }
+
+        function ghMarkRowLogged(rowId, eventId) {
+          const row = document.getElementById(rowId);
+          if (row) {
+            row.classList.add('opacity-50');
+            row.querySelector('input.gh-cb')?.classList.add('hidden');
+            row.querySelector('form')?.classList.add('hidden');
+            const logBtn = row.querySelector('button.button-main-green');
+            if (logBtn) {
+              const span = document.createElement('span');
+              span.className = 'shrink-0 text-xs text-green-600 dark:text-green-400 font-medium';
+              span.textContent = '✓ Logged';
+              logBtn.replaceWith(span);
+            }
+          }
+          if (eventId) {
+            fetch('/github-activity/mark-logged?eventId=' + encodeURIComponent(eventId), {
+              method: 'POST',
+              headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.content || '' }
+            });
+          }
+        }
+
+        function ghMarkLogged(btn, frame, eventId) {
+          const row = btn.closest('[id^="ev-row-"]');
+          ghMarkRowLogged(row?.id, eventId);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+          const csrfInput = document.querySelector('input[name="_csrf"]');
+          if (csrfInput) {
+            const meta = document.createElement('meta');
+            meta.name = '_csrf'; meta.content = csrfInput.value;
+            document.head.appendChild(meta);
+          }
+        });
+      </script>
     </th:block>
 
   </body>

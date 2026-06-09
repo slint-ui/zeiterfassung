@@ -42,6 +42,14 @@ public class UserSettingsEntity extends AbstractTenantAwareEntity {
     @Column(name = "github_login_verified", nullable = false)
     private boolean githubLoginVerified = false;
 
+    @Column(name = "github_token")
+    @Size(max = 255)
+    @Nullable
+    private String githubToken;
+
+    @Column(name = "notifications_enabled", nullable = false)
+    private boolean notificationsEnabled = true;
+
     protected UserSettingsEntity() {
         super(null);
     }
@@ -100,6 +108,22 @@ public class UserSettingsEntity extends AbstractTenantAwareEntity {
 
     public void setGithubLoginVerified(boolean githubLoginVerified) {
         this.githubLoginVerified = githubLoginVerified;
+    }
+
+    public @Nullable String getGithubToken() {
+        return githubToken;
+    }
+
+    public void setGithubToken(@Nullable String githubToken) {
+        this.githubToken = githubToken;
+    }
+
+    public boolean isNotificationsEnabled() {
+        return notificationsEnabled;
+    }
+
+    public void setNotificationsEnabled(boolean notificationsEnabled) {
+        this.notificationsEnabled = notificationsEnabled;
     }
 
     @Override

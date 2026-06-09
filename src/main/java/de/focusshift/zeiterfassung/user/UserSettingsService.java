@@ -10,7 +10,9 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.servlet.LocaleResolver;
 
+import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.lang.invoke.MethodHandles.lookup;
@@ -110,6 +112,14 @@ public class UserSettingsService {
         return userSettingsEntity;
     }
 
+    public List<String> findAllVerifiedGithubLogins() {
+        return userSettingsRepository.findByGithubLoginVerifiedTrue().stream()
+            .map(UserSettingsEntity::getGithubLogin)
+            .filter(Objects::nonNull)
+            .filter(login -> !login.isBlank())
+            .toList();
+    }
+
     public UserSettings updateGithubLogin(UserIdComposite userIdComposite, @Nullable String githubLogin, boolean verified) {
         final UserSettingsEntity entity = findOrGetDefault(userIdComposite);
         entity.setGithubLogin(githubLogin);
@@ -119,13 +129,30 @@ public class UserSettingsService {
         return toUserSettings(persistedEntity);
     }
 
+    public UserSettings updateGithubToken(UserIdComposite userIdComposite, @Nullable String githubToken) {
+        final UserSettingsEntity entity = findOrGetDefault(userIdComposite);
+        final String trimmed = githubToken != null && !githubToken.isBlank() ? githubToken.trim() : null;
+        entity.setGithubToken(trimmed);
+        final UserSettingsEntity persistedEntity = userSettingsRepository.save(entity);
+        LOG.info("Updated github token for user {}", userIdComposite.localId().value());
+        return toUserSettings(persistedEntity);
+    }
+
+    public UserSettings updateNotificationsEnabled(UserIdComposite userIdComposite, boolean enabled) {
+        final UserSettingsEntity entity = findOrGetDefault(userIdComposite);
+        entity.setNotificationsEnabled(enabled);
+        return toUserSettings(userSettingsRepository.save(entity));
+    }
+
     private static UserSettings toUserSettings(UserSettingsEntity userSettingsEntity) {
         return new UserSettings(
             userSettingsEntity.getTheme(),
             userSettingsEntity.getLocale(),
             userSettingsEntity.getLocaleBrowserSpecific(),
             userSettingsEntity.getGithubLogin(),
-            userSettingsEntity.isGithubLoginVerified()
+            userSettingsEntity.isGithubLoginVerified(),
+            userSettingsEntity.getGithubToken(),
+            userSettingsEntity.isNotificationsEnabled()
         );
     }
 
