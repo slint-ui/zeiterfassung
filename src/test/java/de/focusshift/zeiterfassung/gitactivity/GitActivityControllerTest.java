@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.Set;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -37,6 +39,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
@@ -56,6 +59,7 @@ class GitActivityControllerTest implements ControllerTest {
     @Mock private GitActivityRawEventRepository eventRepository;
     @Mock private GitOAuthTokenRepository oAuthTokenRepository;
     @Mock private GitHubActivityProvider gitHubProvider;
+    @Mock private BitbucketActivityProvider bitbucketProvider;
     @Mock private WorkingTimeSettingsService workingTimeSettingsService;
     @Mock private de.focusshift.zeiterfassung.settings.CategorisationSettingsService categorisationSettingsService;
 
@@ -67,7 +71,7 @@ class GitActivityControllerTest implements ControllerTest {
             userSettingsService, userSettingsProvider, timeEntryService,
             userSearchViewHelper, projectService, activityTypeService,
             timeEntryLockService, eventRepository, oAuthTokenRepository, gitHubProvider,
-            workingTimeSettingsService, categorisationSettingsService
+            bitbucketProvider, workingTimeSettingsService, categorisationSettingsService
         );
         when(oAuthTokenRepository.findByUserLocalId(any())).thenReturn(java.util.List.of());
     }
@@ -164,6 +168,40 @@ class GitActivityControllerTest implements ControllerTest {
         perform(get("/github-activity").with(oidcSubject("user-uuid")))
             .andExpect(status().isOk())
             .andExpect(view().name("github-activity/no-github-login"));
+    }
+
+    // ── manual "Sync now" / Refresh ───────────────────────────────────────────
+
+    @Test
+    void ensureSyncNowAlsoSyncsConnectedBitbucketAccount() throws Exception {
+        final UserSettings settings = mock(UserSettings.class);
+        when(settings.githubLoginVerified()).thenReturn(false);
+        when(settings.githubLogin()).thenReturn(java.util.Optional.empty());
+        when(userSettingsService.getUserSettings(any())).thenReturn(settings);
+        when(bitbucketProvider.isConfigured()).thenReturn(true);
+        final GitOAuthTokenEntity token = new GitOAuthTokenEntity();
+        token.setPlatformAccountId("acc-123");
+        when(oAuthTokenRepository.findByPlatformAndUserLocalId("BITBUCKET", 1L))
+            .thenReturn(java.util.Optional.of(token));
+
+        perform(post("/github-activity/sync").with(oidcSubject("user-uuid")))
+            .andExpect(status().is3xxRedirection());
+
+        verify(bitbucketProvider).syncUser("acc-123");
+    }
+
+    @Test
+    void ensureSyncNowSkipsBitbucketWhenProviderNotConfigured() throws Exception {
+        final UserSettings settings = mock(UserSettings.class);
+        when(settings.githubLoginVerified()).thenReturn(false);
+        when(settings.githubLogin()).thenReturn(java.util.Optional.empty());
+        when(userSettingsService.getUserSettings(any())).thenReturn(settings);
+        when(bitbucketProvider.isConfigured()).thenReturn(false);
+
+        perform(post("/github-activity/sync").with(oidcSubject("user-uuid")))
+            .andExpect(status().is3xxRedirection());
+
+        verify(bitbucketProvider, never()).syncUser(anyString());
     }
 
     // ── anchor categorization ─────────────────────────────────────────────────

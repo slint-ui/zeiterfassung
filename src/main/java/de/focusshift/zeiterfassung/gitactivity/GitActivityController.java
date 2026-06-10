@@ -60,6 +60,7 @@ class GitActivityController implements HasTimeClock, HasLaunchpad, HasUserSearch
     private final GitActivityRawEventRepository eventRepository;
     private final GitOAuthTokenRepository oAuthTokenRepository;
     private final GitHubActivityProvider gitHubProvider;
+    private final BitbucketActivityProvider bitbucketProvider;
     private final WorkingTimeSettingsService workingTimeSettingsService;
     private final CategorisationSettingsService categorisationSettingsService;
 
@@ -73,6 +74,7 @@ class GitActivityController implements HasTimeClock, HasLaunchpad, HasUserSearch
                           GitActivityRawEventRepository eventRepository,
                           GitOAuthTokenRepository oAuthTokenRepository,
                           GitHubActivityProvider gitHubProvider,
+                          BitbucketActivityProvider bitbucketProvider,
                           WorkingTimeSettingsService workingTimeSettingsService,
                           CategorisationSettingsService categorisationSettingsService) {
         this.userSettingsService = userSettingsService;
@@ -85,6 +87,7 @@ class GitActivityController implements HasTimeClock, HasLaunchpad, HasUserSearch
         this.eventRepository = eventRepository;
         this.oAuthTokenRepository = oAuthTokenRepository;
         this.gitHubProvider = gitHubProvider;
+        this.bitbucketProvider = bitbucketProvider;
         this.workingTimeSettingsService = workingTimeSettingsService;
         this.categorisationSettingsService = categorisationSettingsService;
     }
@@ -231,6 +234,11 @@ class GitActivityController implements HasTimeClock, HasLaunchpad, HasUserSearch
         final UserSettings userSettings = userSettingsService.getUserSettings(currentUser.getUserIdComposite());
         if (userSettings.githubLoginVerified() && userSettings.githubLogin().isPresent()) {
             gitHubProvider.syncUser(userSettings.githubLogin().get());
+        }
+        if (bitbucketProvider.isConfigured()) {
+            final Long userLocalId = currentUser.getUserIdComposite().localId().value();
+            oAuthTokenRepository.findByPlatformAndUserLocalId("BITBUCKET", userLocalId)
+                .ifPresent(token -> bitbucketProvider.syncUser(token.getPlatformAccountId()));
         }
 
         final String redirectDate = (date != null ? date : LocalDate.now()).toString();
