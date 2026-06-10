@@ -26,15 +26,15 @@ import static org.slf4j.LoggerFactory.getLogger;
 /**
  * Handles the Bitbucket OAuth 2.0 "connect your account" flow.
  *
- * <p>Required configuration (application.properties / environment):
+ * <p>Required configuration (Settings → Git Activity, persisted in the database):
  * <pre>
- *   bitbucket.oauth.key      — OAuth consumer key
- *   bitbucket.oauth.secret   — OAuth consumer secret
- *   bitbucket.oauth.callback-url — full callback URL, e.g. https://timesheet.example.com/account/bitbucket/callback
+ *   OAuth consumer key
+ *   OAuth consumer secret
  * </pre>
  *
- * <p>The Bitbucket OAuth consumer must be registered with scopes:
- * {@code account}, {@code pullrequest}, {@code repository}.
+ * <p>The Bitbucket OAuth consumer must be registered with scopes
+ * {@code account}, {@code pullrequest}, {@code repository}, and its callback URL set to
+ * {@code <app-base-url>/account/bitbucket/callback}.
  */
 @Controller
 @RequestMapping("/account/bitbucket")
@@ -146,10 +146,14 @@ public class BitbucketOAuthController {
         final GitActivityPlatformSettings settings = platformSettingsService.getBitbucketSettings();
         final String credentials = Base64.getEncoder().encodeToString(
             (settings.appId() + ":" + settings.appSecret()).getBytes(StandardCharsets.UTF_8));
-        final String callbackUrl = settings.callbackUrl() != null ? settings.callbackUrl() : "";
 
-        final String body = "grant_type=authorization_code&code=" + code
-            + (callbackUrl.isBlank() ? "" : "&redirect_uri=" + callbackUrl);
+        // Do NOT send redirect_uri here. The authorize step (see connect()) deliberately omits it,
+        // so Bitbucket uses the OAuth consumer's registered callback URL. Sending redirect_uri only
+        // at the token step makes the two requests asymmetric, and Bitbucket rejects the exchange with
+        // 400 {"error":"invalid_request","error_description":"redirect_uri does not match"}.
+        // The admin "Callback URL" setting documents what to register on the Bitbucket consumer; it is
+        // not replayed into this request.
+        final String body = "grant_type=authorization_code&code=" + code;
 
         return restClient.post()
             .uri("https://bitbucket.org/site/oauth2/access_token")

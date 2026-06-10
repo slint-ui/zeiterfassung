@@ -211,13 +211,13 @@
 
         <div class="flex flex-col gap-1">
           <label for="bitbucketCallbackUrl" class="text-sm font-medium">Callback URL</label>
-          <input type="text" id="bitbucketCallbackUrl" name="bitbucketCallbackUrl"
-                 th:value="${bitbucketSettings.callbackUrl()}"
-                 placeholder="https://timesheet.yourdomain.com/account/bitbucket/callback"
-                 class="border border-gray-300 dark:border-zinc-600 rounded px-3 py-2 text-sm dark:bg-zinc-800 dark:text-zinc-100"
-                 autocomplete="off"/>
+          <input type="text" id="bitbucketCallbackUrl" readonly
+                 th:value="${bitbucketCallbackUrl}"
+                 onclick="this.select()"
+                 class="border border-gray-300 dark:border-zinc-600 rounded px-3 py-2 text-sm bg-gray-50 dark:bg-zinc-900 text-gray-600 dark:text-zinc-400 cursor-text select-all"/>
           <p class="text-xs text-gray-500 dark:text-zinc-400">
-            Must match the callback URL registered in the Bitbucket OAuth consumer settings.
+            Read-only — fixed by the app's route. Register this exact URL as the callback in your
+            Bitbucket OAuth consumer (Settings → OAuth → your consumer → Callback URL).
           </p>
         </div>
 
