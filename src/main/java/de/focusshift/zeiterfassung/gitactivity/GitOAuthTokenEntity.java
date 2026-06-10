@@ -50,6 +50,22 @@ public class GitOAuthTokenEntity {
     @Column(name = "expires_at")
     private Instant expiresAt;
 
+    /** Display name on the platform (e.g. Bitbucket display_name). Null until captured at connect. */
+    @Column(name = "display_name", length = 255)
+    private String displayName;
+
+    /** Handle on the platform (e.g. Bitbucket nickname). Null until captured at connect. */
+    @Column(name = "nickname", length = 255)
+    private String nickname;
+
+    /** Avatar image URL. Null until captured at connect. */
+    @Column(name = "avatar_url", length = 1000)
+    private String avatarUrl;
+
+    /** Profile page URL on the platform. Null until captured at connect. */
+    @Column(name = "profile_url", length = 1000)
+    private String profileUrl;
+
     public Long getId() { return id; }
 
     public String getPlatform() { return platform; }
@@ -69,6 +85,18 @@ public class GitOAuthTokenEntity {
 
     public Instant getExpiresAt() { return expiresAt; }
     public void setExpiresAt(Instant expiresAt) { this.expiresAt = expiresAt; }
+
+    public String getDisplayName() { return displayName; }
+    public void setDisplayName(String displayName) { this.displayName = displayName; }
+
+    public String getNickname() { return nickname; }
+    public void setNickname(String nickname) { this.nickname = nickname; }
+
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+
+    public String getProfileUrl() { return profileUrl; }
+    public void setProfileUrl(String profileUrl) { this.profileUrl = profileUrl; }
 
     /** Returns true when the token is expired or will expire within the next 60 seconds. */
     public boolean isExpired() {

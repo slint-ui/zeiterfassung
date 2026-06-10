@@ -1,0 +1,32 @@
+<?xml version="1.1" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+  <!--
+    Capture display identity for connected OAuth accounts (Bitbucket today, GitLab later) so the
+    account page can show an avatar + name + handle like the GitHub card, instead of a bare
+    "Connected" label. All nullable: existing rows stay valid and backfill on the next reconnect.
+  -->
+  <changeSet author="slint" id="git-oauth-token-add-profile-fields">
+    <preConditions onFail="MARK_RAN">
+      <not><columnExists tableName="git_oauth_token" columnName="display_name"/></not>
+    </preConditions>
+
+    <addColumn tableName="git_oauth_token">
+      <column name="display_name" type="VARCHAR(255)">
+        <constraints nullable="true"/>
+      </column>
+      <column name="nickname" type="VARCHAR(255)">
+        <constraints nullable="true"/>
+      </column>
+      <column name="avatar_url" type="VARCHAR(1000)">
+        <constraints nullable="true"/>
+      </column>
+      <column name="profile_url" type="VARCHAR(1000)">
+        <constraints nullable="true"/>
+      </column>
+    </addColumn>
+  </changeSet>
+
+</databaseChangeLog>
