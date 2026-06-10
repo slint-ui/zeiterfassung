@@ -136,27 +136,34 @@ public class BitbucketActivityProvider implements GitActivityProvider {
                 .header("Authorization", "Bearer " + accessToken)
                 .retrieve()
                 .body(new ParameterizedTypeReference<Map<String, Object>>() {});
-            if (response == null) {
-                return RepoListView.empty();
-            }
-            final List<RepoRef> repos = new ArrayList<>();
-            if (response.get("values") instanceof List<?> list) {
-                for (Object item : list) {
-                    if (item instanceof Map<?, ?> m) {
-                        @SuppressWarnings("unchecked")
-                        final Map<String, Object> repo = (Map<String, Object>) m;
-                        repos.add(new RepoRef(
-                            strOrEmpty(repo.get("full_name")),
-                            linkHref(repo.get("links"), "html"),
-                            Boolean.TRUE.equals(repo.get("is_private"))));
-                    }
-                }
-            }
-            return RepoListView.of(repos, response.get("next") != null);
+            return parseRepositories(response, max);
         } catch (Exception e) {
             LOG.warn("Bitbucket repo list failed for user {}: {}", userLocalId, e.getMessage());
             return RepoListView.error("Couldn't load repositories.");
         }
+    }
+
+    /** Maps a Bitbucket {@code GET /2.0/repositories} response to a bounded view. Package-private for tests. */
+    static RepoListView parseRepositories(Map<String, Object> response, int max) {
+        if (response == null) {
+            return RepoListView.empty();
+        }
+        final List<RepoRef> repos = new ArrayList<>();
+        if (response.get("values") instanceof List<?> list) {
+            for (Object item : list) {
+                if (item instanceof Map<?, ?> m && repos.size() < max) {
+                    @SuppressWarnings("unchecked")
+                    final Map<String, Object> repo = (Map<String, Object>) m;
+                    repos.add(new RepoRef(
+                        strOrEmpty(repo.get("full_name")),
+                        linkHref(repo.get("links"), "html"),
+                        Boolean.TRUE.equals(repo.get("is_private"))));
+                }
+            }
+        }
+        final boolean more = response.get("next") != null
+            || (response.get("values") instanceof List<?> l && l.size() > max);
+        return RepoListView.of(repos, more);
     }
 
     @SuppressWarnings("unchecked")

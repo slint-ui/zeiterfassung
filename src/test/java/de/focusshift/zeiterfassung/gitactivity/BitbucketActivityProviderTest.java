@@ -145,4 +145,72 @@ class BitbucketActivityProviderTest {
             verify(eventRepository, never()).save(any());
         }
     }
+
+    // ── listRepositories parsing ───────────────────────────────────────────────
+
+    @Nested
+    class ListRepositoriesParsing {
+
+        private Map<String, Object> repo(String fullName, boolean isPrivate, String htmlHref) {
+            final Map<String, Object> r = new java.util.HashMap<>();
+            r.put("full_name", fullName);
+            r.put("is_private", isPrivate);
+            if (htmlHref != null) {
+                r.put("links", Map.of("html", Map.of("href", htmlHref)));
+            }
+            return r;
+        }
+
+        @Test
+        void mapsFullNamePrivateFlagAndHtmlUrl() {
+            final Map<String, Object> response = Map.of("values", List.of(
+                repo("acme/web", true, "https://bitbucket.org/acme/web"),
+                repo("acme/docs", false, "https://bitbucket.org/acme/docs")));
+
+            final RepoListView view = BitbucketActivityProvider.parseRepositories(response, 30);
+
+            assertThat(view.error()).isNull();
+            assertThat(view.truncated()).isFalse();
+            assertThat(view.repos()).extracting(RepoRef::fullName).containsExactly("acme/web", "acme/docs");
+            assertThat(view.repos()).extracting(RepoRef::url)
+                .containsExactly("https://bitbucket.org/acme/web", "https://bitbucket.org/acme/docs");
+            assertThat(view.repos()).extracting(RepoRef::privateRepo).containsExactly(true, false);
+        }
+
+        @Test
+        void handlesMissingLinks() {
+            final Map<String, Object> response = Map.of("values", List.of(repo("acme/web", false, null)));
+
+            final RepoListView view = BitbucketActivityProvider.parseRepositories(response, 30);
+
+            assertThat(view.repos()).hasSize(1);
+            assertThat(view.repos().get(0).url()).isNull();
+            assertThat(view.repos().get(0).fullName()).isEqualTo("acme/web");
+        }
+
+        @Test
+        void capsAtMaxAndFlagsTruncatedWhenNextPresent() {
+            final Map<String, Object> response = new java.util.HashMap<>();
+            response.put("values", List.of(
+                repo("a/1", false, "u1"), repo("a/2", false, "u2"), repo("a/3", false, "u3")));
+            response.put("next", "https://api.bitbucket.org/2.0/repositories?page=2");
+
+            final RepoListView view = BitbucketActivityProvider.parseRepositories(response, 2);
+
+            assertThat(view.repos()).hasSize(2);
+            assertThat(view.truncated()).isTrue();
+        }
+
+        @Test
+        void notTruncatedWhenNoNextAndUnderMax() {
+            final Map<String, Object> response = Map.of("values", List.of(repo("a/1", false, "u1")));
+
+            assertThat(BitbucketActivityProvider.parseRepositories(response, 30).truncated()).isFalse();
+        }
+
+        @Test
+        void emptyWhenResponseNull() {
+            assertThat(BitbucketActivityProvider.parseRepositories(null, 30).repos()).isEmpty();
+        }
+    }
 }
