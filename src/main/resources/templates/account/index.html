@@ -112,13 +112,21 @@
                     from customer repositories you have been granted access to.
                   </p>
 
-                  <!-- Connected -->
-                  <div th:if="${githubInstallationId != null}"
-                       class="flex items-center gap-3 p-2 rounded border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950">
-                    <span class="text-sm font-medium text-green-700 dark:text-green-300">✓ Connected</span>
-                    <span class="text-xs text-gray-500 dark:text-zinc-400"
-                          th:text="|Installation #${githubInstallationId}|"></span>
-                    <form th:action="@{/account/github/disconnect-personal}" method="post" class="ml-auto">
+                  <!-- Connected (same card shape as the identity cards) -->
+                  <div th:if="${githubInstallationId != null}" class="flex flex-col gap-2">
+                    <div class="flex items-center gap-3 p-2 rounded border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950">
+                      <div class="flex items-center justify-center w-12 h-12 rounded-full bg-white dark:bg-zinc-900 text-gray-400 dark:text-zinc-500 shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/>
+                        </svg>
+                      </div>
+                      <div class="flex flex-col min-w-0">
+                        <span class="font-medium text-green-800 dark:text-green-200">GitHub App installation</span>
+                        <span class="text-sm text-gray-500 dark:text-zinc-400 truncate" th:text="|#${githubInstallationId}|">#0</span>
+                      </div>
+                      <span class="ml-auto text-xs font-medium text-green-700 dark:text-green-400 shrink-0">✓ Connected</span>
+                    </div>
+                    <form th:action="@{/account/github/disconnect-personal}" method="post">
                       <button type="submit" class="text-sm text-red-600 dark:text-red-400 hover:underline">
                         Disconnect
                       </button>
