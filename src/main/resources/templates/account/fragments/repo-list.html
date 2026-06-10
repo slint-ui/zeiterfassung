@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  Lazy-loaded fragment for the account page "Repositories the app can read" disclosure.
+  Driven by two model attributes: ${frameId} (turbo-frame id) and ${repoView} (RepoListView).
+-->
+<th:block th:fragment="repos">
+  <turbo-frame th:id="${frameId}">
+
+    <p th:if="${repoView.error() != null}"
+       class="text-xs text-red-600 dark:text-red-400 py-2"
+       th:text="${repoView.error()}">Couldn't load repositories.</p>
+
+    <p th:if="${repoView.error() == null and #lists.isEmpty(repoView.repos())}"
+       class="text-xs text-gray-500 dark:text-zinc-400 py-2">No repositories found.</p>
+
+    <ul th:if="${!#lists.isEmpty(repoView.repos())}"
+        class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 py-2">
+      <li th:each="r : ${repoView.repos()}" class="flex items-center gap-2 min-w-0">
+        <a th:href="${r.url()}" th:title="${r.fullName()}" target="_blank" rel="noopener noreferrer"
+           class="text-sm text-blue-600 dark:text-sky-400 truncate" th:text="${r.fullName()}">owner/repo</a>
+        <span th:if="${r.privateRepo()}"
+              class="text-[10px] uppercase tracking-wide px-1 rounded bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-400 shrink-0">private</span>
+      </li>
+    </ul>
+
+    <p th:if="${repoView.truncated()}" class="text-xs text-gray-500 dark:text-zinc-400 pt-1">
+      Showing the first matches only — open the platform to see all.
+    </p>
+
+  </turbo-frame>
+</th:block>
+</body>
+</html>

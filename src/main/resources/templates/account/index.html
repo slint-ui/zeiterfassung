@@ -125,6 +125,16 @@
                     </form>
                   </div>
 
+                  <!-- Repositories this installation can read -->
+                  <details th:if="${githubInstallationId != null}" class="mt-1">
+                    <summary class="text-sm font-medium cursor-pointer text-gray-700 dark:text-zinc-300">
+                      Repositories the app can read
+                    </summary>
+                    <turbo-frame id="github-repos" src="/account/github/repositories" loading="lazy">
+                      <p class="text-xs text-gray-500 dark:text-zinc-400 py-2">Loading…</p>
+                    </turbo-frame>
+                  </details>
+
                   <!-- Not connected -->
                   <div th:if="${githubInstallationId == null}">
                     <a href="/account/github/connect"
@@ -176,6 +186,16 @@
                     </button>
                   </form>
                 </div>
+
+                <!-- Repositories the app can read -->
+                <details th:if="${bitbucketConnected}" class="border-t border-gray-200 dark:border-zinc-700 pt-3">
+                  <summary class="text-sm font-medium cursor-pointer text-gray-700 dark:text-zinc-300">
+                    Repositories the app can read
+                  </summary>
+                  <turbo-frame id="bitbucket-repos" src="/account/bitbucket/repositories" loading="lazy">
+                    <p class="text-xs text-gray-500 dark:text-zinc-400 py-2">Loading…</p>
+                  </turbo-frame>
+                </details>
 
                 <!-- Not connected -->
                 <div th:if="${!bitbucketConnected}">
