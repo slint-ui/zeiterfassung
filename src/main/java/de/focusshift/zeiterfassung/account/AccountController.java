@@ -136,6 +136,8 @@ class AccountController implements HasTimeClock, HasLaunchpad, HasUserSearch {
         final Long userLocalId = currentOidcUser.getUserIdComposite().localId().value();
         model.addAttribute("frameId", "bitbucket-repos");
         model.addAttribute("repoView", bitbucketActivityProvider.listRepositories(userLocalId, 30));
+        model.addAttribute("platformName", "Bitbucket");
+        model.addAttribute("moreUrl", "https://bitbucket.org/dashboard/repositories");
         return "account/fragments/repo-list :: repos";
     }
 
@@ -143,11 +145,16 @@ class AccountController implements HasTimeClock, HasLaunchpad, HasUserSearch {
     @GetMapping("/github/repositories")
     String githubRepositories(@CurrentUser CurrentOidcUser currentOidcUser, Model model) {
         final UserSettings userSettings = userSettingsService.getUserSettings(currentOidcUser.getUserIdComposite());
-        final RepoListView view = userSettings.githubInstallationId()
-            .map(installationId -> gitHubActivityProvider.listInstallationRepositories(installationId, 30))
-            .orElseGet(RepoListView::empty);
+        final Long installationId = userSettings.githubInstallationId().orElse(null);
+        final RepoListView view = installationId != null
+            ? gitHubActivityProvider.listInstallationRepositories(installationId, 30)
+            : RepoListView.empty();
         model.addAttribute("frameId", "github-repos");
         model.addAttribute("repoView", view);
+        model.addAttribute("platformName", "GitHub");
+        model.addAttribute("moreUrl", installationId != null
+            ? "https://github.com/settings/installations/" + installationId
+            : "https://github.com/settings/installations");
         return "account/fragments/repo-list :: repos";
     }
 

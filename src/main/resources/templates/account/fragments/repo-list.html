@@ -26,7 +26,10 @@
     </ul>
 
     <p th:if="${repoView.truncated()}" class="text-xs text-gray-500 dark:text-zinc-400 pt-1">
-      Showing the first matches only — open the platform to see all.
+      Showing the first <span th:text="${repoView.repos().size()}">30</span> —
+      <a th:href="${moreUrl}" target="_blank" rel="noopener noreferrer"
+         class="text-blue-600 dark:text-sky-400 hover:underline"
+         th:text="|see all on ${platformName} ↗|">see all ↗</a>
     </p>
 
   </turbo-frame>
