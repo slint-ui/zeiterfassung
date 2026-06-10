@@ -1,10 +1,13 @@
 package de.focusshift.zeiterfassung.account;
 
 import de.focus_shift.launchpad.api.HasLaunchpad;
+import de.focusshift.zeiterfassung.gitactivity.BitbucketActivityProvider;
 import de.focusshift.zeiterfassung.gitactivity.GitActivityPlatformSettings;
 import de.focusshift.zeiterfassung.gitactivity.GitActivityPlatformSettingsService;
+import de.focusshift.zeiterfassung.gitactivity.GitHubActivityProvider;
 import de.focusshift.zeiterfassung.gitactivity.GitOAuthTokenEntity;
 import de.focusshift.zeiterfassung.gitactivity.GitOAuthTokenRepository;
+import de.focusshift.zeiterfassung.gitactivity.RepoListView;
 import de.focusshift.zeiterfassung.search.HasUserSearch;
 import de.focusshift.zeiterfassung.search.UserSearchViewHelper;
 import de.focusshift.zeiterfassung.security.CurrentUser;
@@ -36,15 +39,21 @@ class AccountController implements HasTimeClock, HasLaunchpad, HasUserSearch {
     private final UserSearchViewHelper userSearchViewHelper;
     private final GitOAuthTokenRepository gitOAuthTokenRepository;
     private final GitActivityPlatformSettingsService platformSettingsService;
+    private final BitbucketActivityProvider bitbucketActivityProvider;
+    private final GitHubActivityProvider gitHubActivityProvider;
 
     AccountController(UserSettingsService userSettingsService,
                       UserSearchViewHelper userSearchViewHelper,
                       GitOAuthTokenRepository gitOAuthTokenRepository,
-                      GitActivityPlatformSettingsService platformSettingsService) {
+                      GitActivityPlatformSettingsService platformSettingsService,
+                      BitbucketActivityProvider bitbucketActivityProvider,
+                      GitHubActivityProvider gitHubActivityProvider) {
         this.userSettingsService = userSettingsService;
         this.userSearchViewHelper = userSearchViewHelper;
         this.gitOAuthTokenRepository = gitOAuthTokenRepository;
         this.platformSettingsService = platformSettingsService;
+        this.bitbucketActivityProvider = bitbucketActivityProvider;
+        this.gitHubActivityProvider = gitHubActivityProvider;
     }
 
     @GetMapping
@@ -117,6 +126,36 @@ class AccountController implements HasTimeClock, HasLaunchpad, HasUserSearch {
     String githubDisconnectPersonal(@CurrentUser CurrentOidcUser currentOidcUser) {
         userSettingsService.updateGithubInstallationId(currentOidcUser.getUserIdComposite(), null);
         return "redirect:/account";
+    }
+
+    // ── "Repositories the app can read" — lazy fragments loaded by a Turbo Frame ───────────────
+
+    /** Lazy fragment: repositories the user's Bitbucket OAuth token can read. */
+    @GetMapping("/bitbucket/repositories")
+    String bitbucketRepositories(@CurrentUser CurrentOidcUser currentOidcUser, Model model) {
+        final Long userLocalId = currentOidcUser.getUserIdComposite().localId().value();
+        model.addAttribute("frameId", "bitbucket-repos");
+        model.addAttribute("repoView", bitbucketActivityProvider.listRepositories(userLocalId, 30));
+        model.addAttribute("platformName", "Bitbucket");
+        model.addAttribute("moreUrl", "https://bitbucket.org/dashboard/repositories");
+        return "account/fragments/repo-list :: repos";
+    }
+
+    /** Lazy fragment: repositories the user's GitHub App personal installation can read. */
+    @GetMapping("/github/repositories")
+    String githubRepositories(@CurrentUser CurrentOidcUser currentOidcUser, Model model) {
+        final UserSettings userSettings = userSettingsService.getUserSettings(currentOidcUser.getUserIdComposite());
+        final Long installationId = userSettings.githubInstallationId().orElse(null);
+        final RepoListView view = installationId != null
+            ? gitHubActivityProvider.listInstallationRepositories(installationId, 30)
+            : RepoListView.empty();
+        model.addAttribute("frameId", "github-repos");
+        model.addAttribute("repoView", view);
+        model.addAttribute("platformName", "GitHub");
+        model.addAttribute("moreUrl", installationId != null
+            ? "https://github.com/settings/installations/" + installationId
+            : "https://github.com/settings/installations");
+        return "account/fragments/repo-list :: repos";
     }
 
     private void populateModel(Model model, CurrentOidcUser currentOidcUser,

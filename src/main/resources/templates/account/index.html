@@ -92,7 +92,7 @@
                           th:text="#{account.github-login.verified.badge}">✓ Verified</span>
                   </div>
                   <form th:action="@{/account/github/disconnect}" method="post">
-                    <button type="submit" class="text-sm text-red-600 dark:text-red-400 hover:underline"
+                    <button type="submit" class="inline-flex items-center rounded border border-red-200 dark:border-red-900 px-2.5 py-1 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950"
                             th:text="#{account.github-login.disconnect}">Disconnect</button>
                   </form>
                 </div>
@@ -112,18 +112,36 @@
                     from customer repositories you have been granted access to.
                   </p>
 
-                  <!-- Connected -->
-                  <div th:if="${githubInstallationId != null}"
-                       class="flex items-center gap-3 p-2 rounded border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950">
-                    <span class="text-sm font-medium text-green-700 dark:text-green-300">✓ Connected</span>
-                    <span class="text-xs text-gray-500 dark:text-zinc-400"
-                          th:text="|Installation #${githubInstallationId}|"></span>
-                    <form th:action="@{/account/github/disconnect-personal}" method="post" class="ml-auto">
-                      <button type="submit" class="text-sm text-red-600 dark:text-red-400 hover:underline">
+                  <!-- Connected (same card shape as the identity cards) -->
+                  <div th:if="${githubInstallationId != null}" class="flex flex-col gap-2">
+                    <div class="flex items-center gap-3 p-2 rounded border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950">
+                      <div class="flex items-center justify-center w-12 h-12 rounded-full bg-white dark:bg-zinc-900 text-gray-400 dark:text-zinc-500 shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/>
+                        </svg>
+                      </div>
+                      <div class="flex flex-col min-w-0">
+                        <span class="font-medium text-green-800 dark:text-green-200">GitHub App installation</span>
+                        <span class="text-sm text-gray-500 dark:text-zinc-400 truncate" th:text="|#${githubInstallationId}|">#0</span>
+                      </div>
+                      <span class="ml-auto text-xs font-medium text-green-700 dark:text-green-400 shrink-0">✓ Connected</span>
+                    </div>
+                    <form th:action="@{/account/github/disconnect-personal}" method="post">
+                      <button type="submit" class="inline-flex items-center rounded border border-red-200 dark:border-red-900 px-2.5 py-1 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950">
                         Disconnect
                       </button>
                     </form>
                   </div>
+
+                  <!-- Repositories this installation can read -->
+                  <details th:if="${githubInstallationId != null}" class="mt-1">
+                    <summary class="text-sm font-medium cursor-pointer text-gray-700 dark:text-zinc-300">
+                      Repositories the app can read
+                    </summary>
+                    <turbo-frame id="github-repos" src="/account/github/repositories" loading="lazy">
+                      <p class="text-xs text-gray-500 dark:text-zinc-400 py-2">Loading…</p>
+                    </turbo-frame>
+                  </details>
 
                   <!-- Not connected -->
                   <div th:if="${githubInstallationId == null}">
@@ -171,11 +189,21 @@
                     <span class="ml-auto text-xs font-medium text-green-700 dark:text-green-400">✓ Connected</span>
                   </div>
                   <form th:action="@{/account/bitbucket/disconnect}" method="post">
-                    <button type="submit" class="text-sm text-red-600 dark:text-red-400 hover:underline">
+                    <button type="submit" class="inline-flex items-center rounded border border-red-200 dark:border-red-900 px-2.5 py-1 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950">
                       Disconnect
                     </button>
                   </form>
                 </div>
+
+                <!-- Repositories the app can read -->
+                <details th:if="${bitbucketConnected}" class="border-t border-gray-200 dark:border-zinc-700 pt-3">
+                  <summary class="text-sm font-medium cursor-pointer text-gray-700 dark:text-zinc-300">
+                    Repositories the app can read
+                  </summary>
+                  <turbo-frame id="bitbucket-repos" src="/account/bitbucket/repositories" loading="lazy">
+                    <p class="text-xs text-gray-500 dark:text-zinc-400 py-2">Loading…</p>
+                  </turbo-frame>
+                </details>
 
                 <!-- Not connected -->
                 <div th:if="${!bitbucketConnected}">

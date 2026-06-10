@@ -4,7 +4,9 @@ import de.focusshift.zeiterfassung.security.CurrentUser;
 import de.focusshift.zeiterfassung.security.oidc.CurrentOidcUser;
 import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,12 +50,18 @@ public class BitbucketOAuthController {
 
     private final GitOAuthTokenRepository tokenRepository;
     private final GitActivityPlatformSettingsService platformSettingsService;
+    private final BitbucketActivityProvider bitbucketActivityProvider;
+    private final TaskExecutor taskExecutor;
     private final RestClient restClient;
 
     BitbucketOAuthController(GitOAuthTokenRepository tokenRepository,
-                              GitActivityPlatformSettingsService platformSettingsService) {
+                              GitActivityPlatformSettingsService platformSettingsService,
+                              BitbucketActivityProvider bitbucketActivityProvider,
+                              @Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor) {
         this.tokenRepository = tokenRepository;
         this.platformSettingsService = platformSettingsService;
+        this.bitbucketActivityProvider = bitbucketActivityProvider;
+        this.taskExecutor = taskExecutor;
         this.restClient = RestClient.builder()
             .defaultHeader("User-Agent", "zeiterfassung-bitbucket-oauth")
             .build();
@@ -124,6 +132,16 @@ public class BitbucketOAuthController {
 
             upsertToken(userLocalId, profile, accessToken, refreshToken, expiresAt);
             LOG.info("Bitbucket account {} connected for user {}", profile.accountId(), userLocalId);
+            // Kick off an initial activity sync in the background so the user doesn't have to wait
+            // for the next scheduled run; the OAuth redirect stays snappy.
+            final String accountId = profile.accountId();
+            taskExecutor.execute(() -> {
+                try {
+                    bitbucketActivityProvider.syncUser(accountId);
+                } catch (Exception e) {
+                    LOG.warn("Initial Bitbucket sync after connect failed for {}", accountId, e);
+                }
+            });
             return "redirect:/account?bitbucketConnected=true";
 
         } catch (Exception e) {

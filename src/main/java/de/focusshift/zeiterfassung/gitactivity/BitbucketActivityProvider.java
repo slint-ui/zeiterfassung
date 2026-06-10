@@ -111,6 +111,68 @@ public class BitbucketActivityProvider implements GitActivityProvider {
         return lastSyncTimes.get(platformAccountId);
     }
 
+    /**
+     * Lists repositories the connected user can read (role=member), for the account page's
+     * "repositories the app can read" disclosure. Single page, bounded by {@code max}.
+     */
+    public RepoListView listRepositories(Long userLocalId, int max) {
+        final GitOAuthTokenEntity token = tokenRepository
+            .findByPlatformAndUserLocalId(PLATFORM, userLocalId)
+            .orElse(null);
+        if (token == null) {
+            return RepoListView.empty();
+        }
+        final String accessToken;
+        try {
+            accessToken = ensureFreshToken(token);
+        } catch (Exception e) {
+            LOG.warn("Bitbucket repo list: token refresh failed for user {}", userLocalId, e);
+            return RepoListView.error("Couldn't load repositories - please reconnect.");
+        }
+        try {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> response = restClient.get()
+                .uri("https://api.bitbucket.org/2.0/repositories?role=member&sort=-updated_on&pagelen=" + max)
+                .header("Authorization", "Bearer " + accessToken)
+                .retrieve()
+                .body(new ParameterizedTypeReference<Map<String, Object>>() {});
+            return parseRepositories(response, max);
+        } catch (Exception e) {
+            LOG.warn("Bitbucket repo list failed for user {}: {}", userLocalId, e.getMessage());
+            return RepoListView.error("Couldn't load repositories.");
+        }
+    }
+
+    /** Maps a Bitbucket {@code GET /2.0/repositories} response to a bounded view. Package-private for tests. */
+    static RepoListView parseRepositories(Map<String, Object> response, int max) {
+        if (response == null) {
+            return RepoListView.empty();
+        }
+        final List<RepoRef> repos = new ArrayList<>();
+        if (response.get("values") instanceof List<?> list) {
+            for (Object item : list) {
+                if (item instanceof Map<?, ?> m && repos.size() < max) {
+                    @SuppressWarnings("unchecked")
+                    final Map<String, Object> repo = (Map<String, Object>) m;
+                    repos.add(new RepoRef(
+                        strOrEmpty(repo.get("full_name")),
+                        linkHref(repo.get("links"), "html"),
+                        Boolean.TRUE.equals(repo.get("is_private"))));
+                }
+            }
+        }
+        final boolean more = response.get("next") != null
+            || (response.get("values") instanceof List<?> l && l.size() > max);
+        return RepoListView.of(repos, more);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String linkHref(Object linksObj, String key) {
+        if (!(linksObj instanceof Map<?, ?> links)) return null;
+        return ((Map<String, Object>) links).get(key) instanceof Map<?, ?> m
+            ? (String) ((Map<String, Object>) m).get("href") : null;
+    }
+
     // ── Token management ────────────────────────────────────────────────────
 
     private synchronized String ensureFreshToken(GitOAuthTokenEntity token) {

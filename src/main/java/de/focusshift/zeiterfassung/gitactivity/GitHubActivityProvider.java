@@ -631,6 +631,61 @@ public class GitHubActivityProvider implements GitActivityProvider {
         return token;
     }
 
+    /**
+     * Lists repositories the given personal installation can read, for the account page's
+     * "repositories the app can read" disclosure. Bounded by {@code max}.
+     */
+    public RepoListView listInstallationRepositories(long installationId, int max) {
+        if (platformSettingsService == null) {
+            return RepoListView.empty();
+        }
+        final GitActivityPlatformSettings settings = platformSettingsService.getGitHubSettings();
+        if (!settings.isConfigured()) {
+            return RepoListView.empty();
+        }
+        final String token;
+        try {
+            token = getPersonalInstallationToken(settings, installationId);
+        } catch (Exception e) {
+            LOG.warn("GitHub repo list: could not mint installation token for {}", installationId, e);
+            return RepoListView.error("Couldn't load repositories.");
+        }
+        try {
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> response = restClient.get()
+                .uri("https://api.github.com/installation/repositories?per_page=" + max)
+                .header("Authorization", "Bearer " + token)
+                .retrieve()
+                .body(new ParameterizedTypeReference<Map<String, Object>>() {});
+            return parseInstallationRepositories(response);
+        } catch (Exception e) {
+            LOG.warn("GitHub repo list failed for installation {}: {}", installationId, e.getMessage());
+            return RepoListView.error("Couldn't load repositories.");
+        }
+    }
+
+    /** Maps a GitHub {@code GET /installation/repositories} response to a view. Package-private for tests. */
+    static RepoListView parseInstallationRepositories(Map<String, Object> response) {
+        if (response == null) {
+            return RepoListView.empty();
+        }
+        final int totalCount = toInt(response.get("total_count"));
+        final List<RepoRef> repos = new java.util.ArrayList<>();
+        if (response.get("repositories") instanceof List<?> list) {
+            for (Object item : list) {
+                if (item instanceof Map<?, ?> m) {
+                    @SuppressWarnings("unchecked")
+                    final Map<String, Object> r = (Map<String, Object>) m;
+                    repos.add(new RepoRef(
+                        (String) r.get("full_name"),
+                        (String) r.get("html_url"),
+                        Boolean.TRUE.equals(r.get("private"))));
+                }
+            }
+        }
+        return RepoListView.of(repos, totalCount > repos.size());
+    }
+
     @SuppressWarnings("unchecked")
     private String mintInstallationToken(int installationId, String jwt) throws Exception {
         final Map<String, Object> tokenResponse = restClient.post()

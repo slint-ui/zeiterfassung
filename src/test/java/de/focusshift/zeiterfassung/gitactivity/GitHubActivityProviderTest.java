@@ -851,4 +851,50 @@ class GitHubActivityProviderTest {
             assertThat(captor.getValue().getHeadRepoName()).isEqualTo("LeonMatthes/slint");
         }
     }
+
+    // ── installation repositories parsing ──────────────────────────────────────
+
+    @Nested
+    class InstallationRepositoriesParsing {
+
+        private Map<String, Object> repo(String fullName, boolean isPrivate, String htmlUrl) {
+            final Map<String, Object> r = new java.util.HashMap<>();
+            r.put("full_name", fullName);
+            r.put("private", isPrivate);
+            r.put("html_url", htmlUrl);
+            return r;
+        }
+
+        @Test
+        void mapsRepositoriesWithPrivateFlagAndUrl() {
+            final Map<String, Object> response = Map.of(
+                "total_count", 2,
+                "repositories", List.of(
+                    repo("acme/api", true, "https://github.com/acme/api"),
+                    repo("acme/site", false, "https://github.com/acme/site")));
+
+            final RepoListView view = GitHubActivityProvider.parseInstallationRepositories(response);
+
+            assertThat(view.error()).isNull();
+            assertThat(view.truncated()).isFalse();
+            assertThat(view.repos()).extracting(RepoRef::fullName).containsExactly("acme/api", "acme/site");
+            assertThat(view.repos()).extracting(RepoRef::privateRepo).containsExactly(true, false);
+            assertThat(view.repos()).extracting(RepoRef::url)
+                .containsExactly("https://github.com/acme/api", "https://github.com/acme/site");
+        }
+
+        @Test
+        void flagsTruncatedWhenTotalExceedsReturned() {
+            final Map<String, Object> response = Map.of(
+                "total_count", 50,
+                "repositories", List.of(repo("acme/api", false, "u")));
+
+            assertThat(GitHubActivityProvider.parseInstallationRepositories(response).truncated()).isTrue();
+        }
+
+        @Test
+        void emptyWhenResponseNull() {
+            assertThat(GitHubActivityProvider.parseInstallationRepositories(null).repos()).isEmpty();
+        }
+    }
 }
