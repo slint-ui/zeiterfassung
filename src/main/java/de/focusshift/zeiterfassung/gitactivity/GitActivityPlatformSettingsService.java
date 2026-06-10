@@ -54,9 +54,10 @@ public class GitActivityPlatformSettingsService {
         LOG.info("GitHub App settings updated — org={} appName={}", orgName, appName);
     }
 
-    public void saveBitbucketSettings(String oauthKey, String oauthSecret,
-                                       String workspace, String callbackUrl) {
-        save(PLATFORM_BITBUCKET, oauthKey, oauthSecret, workspace, null, callbackUrl, null, null);
+    public void saveBitbucketSettings(String oauthKey, String oauthSecret, String workspace) {
+        // callbackUrl is intentionally not stored: the OAuth callback path is fixed by the app's
+        // route (/account/bitbucket/callback) and Bitbucket uses the consumer's registered callback.
+        save(PLATFORM_BITBUCKET, oauthKey, oauthSecret, workspace, null, null, null, null);
         LOG.info("Bitbucket OAuth settings updated — workspace={}", workspace);
     }
 

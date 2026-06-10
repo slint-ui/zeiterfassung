@@ -72,9 +72,8 @@ class GitActivityAdminController implements HasLaunchpad, HasTimeClock, HasUserS
     String saveBitbucket(@RequestParam(value = "bitbucketOauthKey", required = false) String oauthKey,
                          @RequestParam(value = "bitbucketOauthSecret", required = false) String oauthSecret,
                          @RequestParam(value = "bitbucketWorkspace", required = false) String workspace,
-                         @RequestParam(value = "bitbucketCallbackUrl", required = false) String callbackUrl,
                          Model model) {
-        platformSettingsService.saveBitbucketSettings(oauthKey, oauthSecret, workspace, callbackUrl);
+        platformSettingsService.saveBitbucketSettings(oauthKey, oauthSecret, workspace);
         populateModel(model, true);
         return "settings/git-activity";
     }
@@ -85,6 +84,9 @@ class GitActivityAdminController implements HasLaunchpad, HasTimeClock, HasUserS
 
         model.addAttribute("githubSettings", gh);
         model.addAttribute("bitbucketSettings", bb);
+        // The Bitbucket OAuth callback path is fixed by the app's route; surface the full URL to register.
+        model.addAttribute("bitbucketCallbackUrl", org.springframework.web.servlet.support.ServletUriComponentsBuilder
+            .fromCurrentContextPath().path("/account/bitbucket/callback").toUriString());
         model.addAttribute("githubRateLimitPercent", gitHubActivityProvider.getRateLimitPercent());
         model.addAttribute("githubRateLimitRemaining", gitHubActivityProvider.getRateLimitRemaining());
         model.addAttribute("githubRateLimitTotal", gitHubActivityProvider.getRateLimitTotal());
