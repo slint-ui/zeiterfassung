@@ -3,6 +3,7 @@ package de.focusshift.zeiterfassung.account;
 import de.focus_shift.launchpad.api.HasLaunchpad;
 import de.focusshift.zeiterfassung.gitactivity.GitActivityPlatformSettings;
 import de.focusshift.zeiterfassung.gitactivity.GitActivityPlatformSettingsService;
+import de.focusshift.zeiterfassung.gitactivity.GitOAuthTokenEntity;
 import de.focusshift.zeiterfassung.gitactivity.GitOAuthTokenRepository;
 import de.focusshift.zeiterfassung.search.HasUserSearch;
 import de.focusshift.zeiterfassung.search.UserSearchViewHelper;
@@ -129,8 +130,8 @@ class AccountController implements HasTimeClock, HasLaunchpad, HasUserSearch {
 
         final GitActivityPlatformSettings gh = platformSettingsService.getGitHubSettings();
         final GitActivityPlatformSettings bb = platformSettingsService.getBitbucketSettings();
-        final boolean bitbucketConnected = gitOAuthTokenRepository
-            .findByPlatformAndUserLocalId("BITBUCKET", userLocalId).isPresent();
+        final var bitbucketToken = gitOAuthTokenRepository
+            .findByPlatformAndUserLocalId("BITBUCKET", userLocalId);
 
         model.addAttribute("fullName", fullName);
         model.addAttribute("email", email);
@@ -145,7 +146,11 @@ class AccountController implements HasTimeClock, HasLaunchpad, HasUserSearch {
         model.addAttribute("githubInstallationId", userSettings.githubInstallationId().orElse(null));
         // Bitbucket
         model.addAttribute("bitbucketConfigured", bb.isConfigured());
-        model.addAttribute("bitbucketConnected", bitbucketConnected);
+        model.addAttribute("bitbucketConnected", bitbucketToken.isPresent());
+        model.addAttribute("bitbucketDisplayName", bitbucketToken.map(GitOAuthTokenEntity::getDisplayName).orElse(null));
+        model.addAttribute("bitbucketNickname", bitbucketToken.map(GitOAuthTokenEntity::getNickname).orElse(null));
+        model.addAttribute("bitbucketAvatarUrl", bitbucketToken.map(GitOAuthTokenEntity::getAvatarUrl).orElse(null));
+        model.addAttribute("bitbucketProfileUrl", bitbucketToken.map(GitOAuthTokenEntity::getProfileUrl).orElse(null));
         model.addAttribute("savedSuccess", savedSuccess);
     }
 }

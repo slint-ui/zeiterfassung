@@ -150,17 +150,34 @@
                 An admin can set it up under <a href="/settings/git-activity" class="underline">Settings → Git Activity</a>.
               </div>
 
-              <div th:if="${bitbucketConfigured}">
-                <div th:if="${bitbucketConnected}"
-                     class="flex items-center gap-4 p-3 rounded border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950">
-                  <span class="text-green-700 dark:text-green-300 font-medium">✓ Connected</span>
-                  <form th:action="@{/account/bitbucket/disconnect}" method="post" class="ml-auto">
-                    <button type="submit"
-                            class="text-sm text-red-600 dark:text-red-400 hover:underline">
+              <div th:if="${bitbucketConfigured}" class="flex flex-col gap-4 max-w-md">
+
+                <!-- Connected identity -->
+                <div th:if="${bitbucketConnected}" class="flex flex-col gap-2">
+                  <div class="flex items-center gap-3 p-2 rounded border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950">
+                    <img th:if="${bitbucketAvatarUrl != null}" th:src="${bitbucketAvatarUrl}"
+                         th:alt="${bitbucketDisplayName}" width="48" height="48"
+                         referrerpolicy="no-referrer" onerror="this.style.display='none'"
+                         class="rounded-full w-12 h-12 bg-white object-cover"/>
+                    <div class="flex flex-col">
+                      <span class="font-medium text-green-800 dark:text-green-200"
+                            th:text="${bitbucketDisplayName != null ? bitbucketDisplayName : (bitbucketNickname != null ? bitbucketNickname : 'Bitbucket account')}">Name</span>
+                      <a th:if="${bitbucketNickname != null and bitbucketProfileUrl != null}"
+                         th:href="${bitbucketProfileUrl}" th:text="|@${bitbucketNickname}|"
+                         class="text-sm text-blue-600 dark:text-sky-400" target="_blank" rel="noopener noreferrer">@handle</a>
+                      <span th:if="${bitbucketNickname != null and bitbucketProfileUrl == null}"
+                            class="text-sm text-gray-500 dark:text-zinc-400" th:text="|@${bitbucketNickname}|">@handle</span>
+                    </div>
+                    <span class="ml-auto text-xs font-medium text-green-700 dark:text-green-400">✓ Connected</span>
+                  </div>
+                  <form th:action="@{/account/bitbucket/disconnect}" method="post">
+                    <button type="submit" class="text-sm text-red-600 dark:text-red-400 hover:underline">
                       Disconnect
                     </button>
                   </form>
                 </div>
+
+                <!-- Not connected -->
                 <div th:if="${!bitbucketConnected}">
                   <a href="/account/bitbucket/connect" class="button-secondary inline-flex items-center gap-2">
                     Connect Bitbucket

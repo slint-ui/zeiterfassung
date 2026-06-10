@@ -117,13 +117,13 @@ public class BitbucketOAuthController {
                 ? Instant.now().plusSeconds(expiresIn.longValue())
                 : null;
 
-            final String accountId = fetchAccountId(accessToken);
-            if (accountId == null) {
+            final BitbucketProfile profile = fetchProfile(accessToken);
+            if (profile == null) {
                 return "redirect:/account?bitbucketError=user-fetch-failed";
             }
 
-            upsertToken(userLocalId, accountId, accessToken, refreshToken, expiresAt);
-            LOG.info("Bitbucket account {} connected for user {}", accountId, userLocalId);
+            upsertToken(userLocalId, profile, accessToken, refreshToken, expiresAt);
+            LOG.info("Bitbucket account {} connected for user {}", profile.accountId(), userLocalId);
             return "redirect:/account?bitbucketConnected=true";
 
         } catch (Exception e) {
@@ -164,22 +164,42 @@ public class BitbucketOAuthController {
             .body(new ParameterizedTypeReference<>() {});
     }
 
+    /** Profile fields captured from {@code GET /2.0/user} at connect time for display on the account page. */
+    private record BitbucketProfile(String accountId, String displayName,
+                                    String nickname, String avatarUrl, String profileUrl) {}
+
     @SuppressWarnings("unchecked")
-    private String fetchAccountId(String accessToken) {
+    private BitbucketProfile fetchProfile(String accessToken) {
         try {
             final Map<String, Object> user = restClient.get()
                 .uri("https://api.bitbucket.org/2.0/user")
                 .header("Authorization", "Bearer " + accessToken)
                 .retrieve()
                 .body(new ParameterizedTypeReference<Map<String, Object>>() {});
-            return user != null ? (String) user.get("account_id") : null;
+            if (user == null || user.get("account_id") == null) {
+                return null;
+            }
+            final Map<String, Object> links = (Map<String, Object>) user.get("links");
+            return new BitbucketProfile(
+                (String) user.get("account_id"),
+                (String) user.get("display_name"),
+                (String) user.get("nickname"),
+                linkHref(links, "avatar"),
+                linkHref(links, "html"));
         } catch (Exception e) {
             LOG.error("Failed to fetch Bitbucket user info", e);
             return null;
         }
     }
 
-    private void upsertToken(Long userLocalId, String accountId,
+    /** Safely extracts {@code links.<key>.href} from a Bitbucket API response. */
+    @SuppressWarnings("unchecked")
+    private static String linkHref(Map<String, Object> links, String key) {
+        if (links == null) return null;
+        return links.get(key) instanceof Map<?, ?> m ? (String) ((Map<String, Object>) m).get("href") : null;
+    }
+
+    private void upsertToken(Long userLocalId, BitbucketProfile profile,
                               String accessToken, String refreshToken, Instant expiresAt) {
         final GitOAuthTokenEntity token = tokenRepository
             .findByPlatformAndUserLocalId(PLATFORM, userLocalId)
@@ -189,7 +209,11 @@ public class BitbucketOAuthController {
                 t.setUserLocalId(userLocalId);
                 return t;
             });
-        token.setPlatformAccountId(accountId);
+        token.setPlatformAccountId(profile.accountId());
+        token.setDisplayName(profile.displayName());
+        token.setNickname(profile.nickname());
+        token.setAvatarUrl(profile.avatarUrl());
+        token.setProfileUrl(profile.profileUrl());
         token.setAccessToken(accessToken);
         token.setRefreshToken(refreshToken);
         token.setExpiresAt(expiresAt);
