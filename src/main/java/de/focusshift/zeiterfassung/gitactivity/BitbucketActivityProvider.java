@@ -137,8 +137,13 @@ public class BitbucketActivityProvider implements GitActivityProvider {
                 .retrieve()
                 .body(new ParameterizedTypeReference<Map<String, Object>>() {});
             return parseRepositories(response, max);
+        } catch (org.springframework.web.client.RestClientResponseException e) {
+            // Surface the real Bitbucket status + body so the failure is diagnosable from the UI and logs.
+            LOG.warn("Bitbucket repo list failed for user {}: HTTP {} {} - body: {}", userLocalId,
+                e.getStatusCode().value(), e.getStatusText(), e.getResponseBodyAsString());
+            return RepoListView.error("Couldn't load repositories (HTTP " + e.getStatusCode().value() + ").");
         } catch (Exception e) {
-            LOG.warn("Bitbucket repo list failed for user {}: {}", userLocalId, e.getMessage());
+            LOG.warn("Bitbucket repo list failed for user {}", userLocalId, e);
             return RepoListView.error("Couldn't load repositories.");
         }
     }
