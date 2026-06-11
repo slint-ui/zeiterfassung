@@ -112,8 +112,12 @@ public class BitbucketActivityProvider implements GitActivityProvider {
     }
 
     /**
-     * Lists repositories the connected user can read (role=member), for the account page's
-     * "repositories the app can read" disclosure. Single page, bounded by {@code max}.
+     * Lists repositories the connected user can read, for the account page's "repositories the
+     * app can read" disclosure. Single page, bounded by {@code max}.
+     *
+     * <p>Uses {@code GET /2.0/user/permissions/repositories}. The older
+     * {@code GET /2.0/repositories?role=…} endpoint was deprecated by Bitbucket (CHANGE-2770)
+     * and now returns 410 Gone.
      */
     public RepoListView listRepositories(Long userLocalId, int max) {
         final GitOAuthTokenEntity token = tokenRepository
@@ -132,7 +136,7 @@ public class BitbucketActivityProvider implements GitActivityProvider {
         try {
             @SuppressWarnings("unchecked")
             final Map<String, Object> response = restClient.get()
-                .uri("https://api.bitbucket.org/2.0/repositories?role=member&sort=-updated_on&pagelen=" + max)
+                .uri("https://api.bitbucket.org/2.0/user/permissions/repositories?pagelen=" + max)
                 .header("Authorization", "Bearer " + accessToken)
                 .retrieve()
                 .body(new ParameterizedTypeReference<Map<String, Object>>() {});
@@ -148,7 +152,10 @@ public class BitbucketActivityProvider implements GitActivityProvider {
         }
     }
 
-    /** Maps a Bitbucket {@code GET /2.0/repositories} response to a bounded view. Package-private for tests. */
+    /**
+     * Maps a Bitbucket {@code GET /2.0/user/permissions/repositories} response to a bounded view.
+     * Each value wraps the repository under a {@code repository} object. Package-private for tests.
+     */
     static RepoListView parseRepositories(Map<String, Object> response, int max) {
         if (response == null) {
             return RepoListView.empty();
@@ -156,9 +163,10 @@ public class BitbucketActivityProvider implements GitActivityProvider {
         final List<RepoRef> repos = new ArrayList<>();
         if (response.get("values") instanceof List<?> list) {
             for (Object item : list) {
-                if (item instanceof Map<?, ?> m && repos.size() < max) {
+                if (item instanceof Map<?, ?> m && repos.size() < max
+                    && m.get("repository") instanceof Map<?, ?> rm) {
                     @SuppressWarnings("unchecked")
-                    final Map<String, Object> repo = (Map<String, Object>) m;
+                    final Map<String, Object> repo = (Map<String, Object>) rm;
                     repos.add(new RepoRef(
                         strOrEmpty(repo.get("full_name")),
                         linkHref(repo.get("links"), "html"),
