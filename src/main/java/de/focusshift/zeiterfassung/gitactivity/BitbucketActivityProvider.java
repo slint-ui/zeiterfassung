@@ -530,7 +530,11 @@ public class BitbucketActivityProvider implements GitActivityProvider {
         while (nextUrl != null && page < maxPages) {
             try {
                 final Map<String, Object> response = restClient.get()
-                    .uri(nextUrl)
+                    // Pass a URI, NOT a String. RestClient.uri(String) re-encodes the '%' in an
+                    // already-encoded URL (double-encoding), which breaks the BBQL `q` filter:
+                    // Bitbucket sees %253D... -> decodes once -> "%3D" -> 400 "Illegal character in
+                    // input '%3D%22...'". URI.create() parses the encoded URL as-is, no re-encoding.
+                    .uri(java.net.URI.create(nextUrl))
                     .header("Authorization", "Bearer " + token)
                     .retrieve()
                     .body(new ParameterizedTypeReference<Map<String, Object>>() {});
