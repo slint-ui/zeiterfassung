@@ -229,7 +229,12 @@ public class GitHubActivityProvider implements GitActivityProvider {
                     final boolean missingTitle = e.getAnchorTitle() == null || e.getAnchorTitle().isBlank();
                     final boolean missingHeadBranch = "PR".equals(e.getAnchorType())
                         && (e.getHeadBranch() == null || e.getHeadBranch().isBlank());
-                    if (missingTitle || missingHeadBranch) {
+                    // Refresh open PRs each sync: a PR's title can be edited until it's merged/closed,
+                    // and edits don't reappear in the immutable events feed — so re-fetch the current
+                    // title for still-open PRs.
+                    final boolean openPr = "PR".equals(e.getAnchorType())
+                        && (e.getEventSummary().startsWith("Opened") || e.getEventSummary().startsWith("Reopened"));
+                    if (missingTitle || missingHeadBranch || openPr) {
                         enrichPrDetails(e, token);
                         repository.save(e);
                     }
@@ -740,9 +745,7 @@ public class GitHubActivityProvider implements GitActivityProvider {
             final String title = strOrEmpty(response.get("title"));
             if (!title.isBlank()) {
                 entity.setAnchorTitle(title);
-                if (!entity.getEventSummary().contains(": ")) {
-                    entity.setEventSummary(entity.getEventSummary() + ": " + title);
-                }
+                entity.setEventSummary(withUpdatedTitle(entity.getEventSummary(), title));
             }
             if ("pulls".equals(apiSegment)) {
                 final Map<String, Object> head = (Map<String, Object>) response.get("head");
@@ -762,6 +765,20 @@ public class GitHubActivityProvider implements GitActivityProvider {
             LOG.debug("Could not fetch details for {}/{}/{}: {}",
                 entity.getRepoName(), apiSegment, entity.getAnchorId(), e.getMessage());
         }
+    }
+
+    /**
+     * Replaces the title portion of a {@code "<verb> PR #N: <title>"} event summary with
+     * {@code title} (appends if there was none). Keeps the summary in sync when a PR title is
+     * edited. Package-private for tests.
+     */
+    static String withUpdatedTitle(String summary, String title) {
+        if (title == null || title.isBlank()) {
+            return summary;
+        }
+        final int colon = summary.indexOf(": ");
+        final String prefix = colon >= 0 ? summary.substring(0, colon) : summary;
+        return prefix + ": " + title;
     }
 
     // --- Utilities ---
