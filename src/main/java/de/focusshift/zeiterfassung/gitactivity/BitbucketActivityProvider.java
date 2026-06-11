@@ -118,11 +118,11 @@ public class BitbucketActivityProvider implements GitActivityProvider {
 
     /**
      * Lists repositories the connected user can read, for the account page's "repositories the
-     * app can read" disclosure. Single page, bounded by {@code max}.
+     * app can read" disclosure. Bounded by {@code max}.
      *
-     * <p>Uses {@code GET /2.0/user/permissions/repositories}. The older
-     * {@code GET /2.0/repositories?role=…} endpoint was deprecated by Bitbucket (CHANGE-2770)
-     * and now returns 410 Gone.
+     * <p>Workspace-scoped: Bitbucket sunset the cross-workspace listing endpoints (CHANGE-2770,
+     * removed 2026-04-14), so we enumerate the user's workspaces and list each one's repositories
+     * ({@code GET /2.0/workspaces} → {@code GET /2.0/repositories/{workspace}}).
      */
     public RepoListView listRepositories(Long userLocalId, int max) {
         final GitOAuthTokenEntity token = tokenRepository
@@ -139,18 +139,11 @@ public class BitbucketActivityProvider implements GitActivityProvider {
             return RepoListView.error("Couldn't load repositories - please reconnect.");
         }
         try {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> response = restClient.get()
-                .uri("https://api.bitbucket.org/2.0/user/permissions/repositories?pagelen=" + max)
-                .header("Authorization", "Bearer " + accessToken)
-                .retrieve()
-                .body(new ParameterizedTypeReference<Map<String, Object>>() {});
-            return parseRepositories(response, max);
-        } catch (org.springframework.web.client.RestClientResponseException e) {
-            // Surface the real Bitbucket status + body so the failure is diagnosable from the UI and logs.
-            LOG.warn("Bitbucket repo list failed for user {}: HTTP {} {} - body: {}", userLocalId,
-                e.getStatusCode().value(), e.getStatusText(), e.getResponseBodyAsString());
-            return RepoListView.error("Couldn't load repositories (HTTP " + e.getStatusCode().value() + ").");
+            final List<Map<String, Object>> repos = fetchAccessibleRepos(accessToken, max);
+            final List<RepoRef> refs = repos.stream()
+                .map(BitbucketActivityProvider::toRepoRef)
+                .toList();
+            return RepoListView.of(refs, repos.size() >= max);
         } catch (Exception e) {
             LOG.warn("Bitbucket repo list failed for user {}", userLocalId, e);
             return RepoListView.error("Couldn't load repositories.");
@@ -158,30 +151,32 @@ public class BitbucketActivityProvider implements GitActivityProvider {
     }
 
     /**
-     * Maps a Bitbucket {@code GET /2.0/user/permissions/repositories} response to a bounded view.
-     * Each value wraps the repository under a {@code repository} object. Package-private for tests.
+     * Lists repositories the user can read across all their workspaces, as raw Bitbucket repo
+     * objects, capped at {@code max}. Workspace-scoped per CHANGE-2770:
+     * {@code GET /2.0/workspaces} then {@code GET /2.0/repositories/{workspace}}.
      */
-    static RepoListView parseRepositories(Map<String, Object> response, int max) {
-        if (response == null) {
-            return RepoListView.empty();
-        }
-        final List<RepoRef> repos = new ArrayList<>();
-        if (response.get("values") instanceof List<?> list) {
-            for (Object item : list) {
-                if (item instanceof Map<?, ?> m && repos.size() < max
-                    && m.get("repository") instanceof Map<?, ?> rm) {
-                    @SuppressWarnings("unchecked")
-                    final Map<String, Object> repo = (Map<String, Object>) rm;
-                    repos.add(new RepoRef(
-                        strOrEmpty(repo.get("full_name")),
-                        linkHref(repo.get("links"), "html"),
-                        Boolean.TRUE.equals(repo.get("is_private"))));
-                }
+    private List<Map<String, Object>> fetchAccessibleRepos(String token, int max) {
+        final List<Map<String, Object>> repos = new ArrayList<>();
+        for (Map<String, Object> workspace : fetchPaged(
+                "https://api.bitbucket.org/2.0/workspaces?pagelen=100", token, 1)) {
+            if (repos.size() >= max) break;
+            final String slug = strOrEmpty(workspace.get("slug"));
+            if (slug.isEmpty()) continue;
+            for (Map<String, Object> repo : fetchPaged(
+                    "https://api.bitbucket.org/2.0/repositories/" + slug + "?pagelen=" + max, token, 1)) {
+                if (repos.size() >= max) break;
+                repos.add(repo);
             }
         }
-        final boolean more = response.get("next") != null
-            || (response.get("values") instanceof List<?> l && l.size() > max);
-        return RepoListView.of(repos, more);
+        return repos;
+    }
+
+    /** Maps one Bitbucket repository object to a {@link RepoRef}. Package-private for tests. */
+    static RepoRef toRepoRef(Map<String, Object> repo) {
+        return new RepoRef(
+            strOrEmpty(repo.get("full_name")),
+            linkHref(repo.get("links"), "html"),
+            Boolean.TRUE.equals(repo.get("is_private")));
     }
 
     @SuppressWarnings("unchecked")
@@ -237,11 +232,9 @@ public class BitbucketActivityProvider implements GitActivityProvider {
             .toString().replace("Z", "+00:00");
 
         // The user-centric GET /2.0/pullrequests/{account} endpoint was removed (404), so list the
-        // repos the user can read and query each for PRs they authored.
+        // repos the user can read (workspace-scoped) and query each for PRs they authored.
         final List<String> repoFullNames = extractRepoFullNames(
-            fetchPaged("https://api.bitbucket.org/2.0/user/permissions/repositories?pagelen="
-                + MAX_REPOS_PER_SYNC, token, 1),
-            MAX_REPOS_PER_SYNC);
+            fetchAccessibleRepos(token, MAX_REPOS_PER_SYNC), MAX_REPOS_PER_SYNC);
 
         int saved = 0;
         for (String repoFullName : repoFullNames) {
@@ -257,20 +250,14 @@ public class BitbucketActivityProvider implements GitActivityProvider {
         }
     }
 
-    /**
-     * Extracts repo full-names ({@code workspace/repo}) from a
-     * {@code GET /2.0/user/permissions/repositories} page. Package-private for tests.
-     */
-    static List<String> extractRepoFullNames(List<Map<String, Object>> permissionEntries, int max) {
+    /** Extracts repo full-names ({@code workspace/repo}) from raw Bitbucket repo objects. Package-private for tests. */
+    static List<String> extractRepoFullNames(List<Map<String, Object>> repos, int max) {
         final List<String> names = new ArrayList<>();
-        for (Map<String, Object> entry : permissionEntries) {
+        for (Map<String, Object> repo : repos) {
             if (names.size() >= max) break;
-            if (entry.get("repository") instanceof Map<?, ?> rm) {
-                @SuppressWarnings("unchecked")
-                final String fullName = strOrEmpty(((Map<String, Object>) rm).get("full_name"));
-                if (!fullName.isEmpty()) {
-                    names.add(fullName);
-                }
+            final String fullName = strOrEmpty(repo.get("full_name"));
+            if (!fullName.isEmpty()) {
+                names.add(fullName);
             }
         }
         return names;
