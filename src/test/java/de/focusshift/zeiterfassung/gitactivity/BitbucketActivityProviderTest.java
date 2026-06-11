@@ -242,4 +242,56 @@ class BitbucketActivityProviderTest {
             assertThat(BitbucketActivityProvider.parseWorkspaces("   ")).isEmpty();
         }
     }
+
+    // ── applyPrUpdate (title edits + state transitions on existing PR events) ───
+
+    @Nested
+    class ApplyPrUpdate {
+
+        private GitActivityRawEventEntity openEvent(String title) {
+            final GitActivityRawEventEntity e = new GitActivityRawEventEntity();
+            e.setAnchorTitle(title);
+            e.setEventSummary("Opened PR #7: " + title);
+            e.setEventTimestamp(Instant.parse("2026-06-01T10:00:00Z"));
+            return e;
+        }
+
+        @Test
+        void updatesTitleAndSummaryWhenTitleEditedWhileOpen() {
+            final GitActivityRawEventEntity e = openEvent("Old title");
+            final Instant origTs = e.getEventTimestamp();
+
+            final boolean changed = BitbucketActivityProvider.applyPrUpdate(
+                e, "New title", "Opened PR #7: New title", "Opened", "OPEN",
+                Instant.parse("2026-06-05T10:00:00Z"));
+
+            assertThat(changed).isTrue();
+            assertThat(e.getAnchorTitle()).isEqualTo("New title");
+            assertThat(e.getEventSummary()).isEqualTo("Opened PR #7: New title");
+            assertThat(e.getEventTimestamp()).isEqualTo(origTs);   // an open title-edit must not move the timestamp
+        }
+
+        @Test
+        void noChangeWhenTitleAndStateUnchanged() {
+            final GitActivityRawEventEntity e = openEvent("Same");
+
+            final boolean changed = BitbucketActivityProvider.applyPrUpdate(
+                e, "Same", "Opened PR #7: Same", "Opened", "OPEN", Instant.now());
+
+            assertThat(changed).isFalse();
+        }
+
+        @Test
+        void updatesEverythingOnStateTransitionToMerged() {
+            final GitActivityRawEventEntity e = openEvent("Title");
+            final Instant mergedTs = Instant.parse("2026-06-06T12:00:00Z");
+
+            final boolean changed = BitbucketActivityProvider.applyPrUpdate(
+                e, "Title", "Merged PR #7: Title", "Merged", "MERGED", mergedTs);
+
+            assertThat(changed).isTrue();
+            assertThat(e.getEventSummary()).isEqualTo("Merged PR #7: Title");
+            assertThat(e.getEventTimestamp()).isEqualTo(mergedTs);
+        }
+    }
 }
