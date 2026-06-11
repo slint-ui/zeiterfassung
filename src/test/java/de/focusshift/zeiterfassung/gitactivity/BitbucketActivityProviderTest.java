@@ -222,4 +222,24 @@ class BitbucketActivityProviderTest {
                 .containsExactly("acme/web");
         }
     }
+
+    // ── parseWorkspaces (configured "Workspace slug") ──────────────────────────
+
+    @Nested
+    class ParseWorkspaces {
+
+        @Test
+        void splitsOnCommaAndWhitespace() {
+            assertThat(BitbucketActivityProvider.parseWorkspaces("xyleminc slint-ui"))
+                .containsExactly("xyleminc", "slint-ui");
+            assertThat(BitbucketActivityProvider.parseWorkspaces("a, b ,c"))
+                .containsExactly("a", "b", "c");
+        }
+
+        @Test
+        void emptyForNullOrBlank() {
+            assertThat(BitbucketActivityProvider.parseWorkspaces(null)).isEmpty();
+            assertThat(BitbucketActivityProvider.parseWorkspaces("   ")).isEmpty();
+        }
+    }
 }

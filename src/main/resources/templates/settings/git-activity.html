@@ -198,14 +198,16 @@
         </div>
 
         <div class="flex flex-col gap-1">
-          <label for="bitbucketWorkspace" class="text-sm font-medium">Workspace slug</label>
+          <label for="bitbucketWorkspace" class="text-sm font-medium">Workspace slug(s)</label>
           <input type="text" id="bitbucketWorkspace" name="bitbucketWorkspace"
                  th:value="${bitbucketSettings.orgName()}"
-                 placeholder="e.g. my-workspace"
+                 placeholder="e.g. xyleminc slint-ui"
                  class="border border-gray-300 dark:border-zinc-600 rounded px-3 py-2 text-sm dark:bg-zinc-800 dark:text-zinc-100"
                  autocomplete="off"/>
           <p class="text-xs text-gray-500 dark:text-zinc-400">
-            Optional. The Bitbucket workspace slug — used to label the OAuth consumer in the UI.
+            Required for activity sync. The Bitbucket workspace(s) to scan for repositories,
+            space- or comma-separated. Bitbucket no longer lets apps discover your workspaces,
+            so the sync only covers the workspaces listed here.
           </p>
         </div>
 
