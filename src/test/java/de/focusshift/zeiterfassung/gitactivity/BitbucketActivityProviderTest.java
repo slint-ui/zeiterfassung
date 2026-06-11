@@ -214,4 +214,46 @@ class BitbucketActivityProviderTest {
             assertThat(BitbucketActivityProvider.parseRepositories(null, 30).repos()).isEmpty();
         }
     }
+
+    // ── extractRepoFullNames (per-repo sync) ───────────────────────────────────
+
+    @Nested
+    class ExtractRepoFullNames {
+
+        private Map<String, Object> entry(String fullName) {
+            final Map<String, Object> repo = new java.util.HashMap<>();
+            if (fullName != null) {
+                repo.put("full_name", fullName);
+            }
+            return Map.of("permission", "read", "repository", repo);
+        }
+
+        @Test
+        void extractsFullNamesFromPermissionEntries() {
+            final List<Map<String, Object>> entries = List.of(
+                entry("xyleminc/rivo-ui"), entry("acme/web"));
+
+            assertThat(BitbucketActivityProvider.extractRepoFullNames(entries, 50))
+                .containsExactly("xyleminc/rivo-ui", "acme/web");
+        }
+
+        @Test
+        void capsAtMax() {
+            final List<Map<String, Object>> entries = List.of(entry("a/1"), entry("a/2"), entry("a/3"));
+
+            assertThat(BitbucketActivityProvider.extractRepoFullNames(entries, 2))
+                .containsExactly("a/1", "a/2");
+        }
+
+        @Test
+        void skipsEntriesWithoutRepositoryOrName() {
+            final List<Map<String, Object>> entries = new java.util.ArrayList<>();
+            entries.add(entry("acme/web"));
+            entries.add(Map.of("permission", "read"));   // no "repository"
+            entries.add(entry(null));                      // "repository" without full_name
+
+            assertThat(BitbucketActivityProvider.extractRepoFullNames(entries, 50))
+                .containsExactly("acme/web");
+        }
+    }
 }

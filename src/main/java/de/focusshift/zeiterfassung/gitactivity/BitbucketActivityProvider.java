@@ -6,6 +6,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -23,8 +24,10 @@ import static org.slf4j.LoggerFactory.getLogger;
  * Fetches Bitbucket activity (PRs, reviews, commits) for all users who have
  * connected their Bitbucket account via OAuth.
  *
- * <p>Because Bitbucket has no Events API, we poll the user-centric PR endpoint
- * and derive activity from the current PR state and per-PR activity feeds.
+ * <p>Because Bitbucket has no Events API — and removed the user-centric PR endpoint
+ * ({@code GET /2.0/pullrequests/{account}}, now 404) — we list the repositories the user can
+ * read and poll each one's pull requests (filtered to the user as author), deriving activity
+ * from the current PR state and per-PR activity feeds.
  *
  * <p>Required configuration:
  * <pre>
@@ -37,6 +40,8 @@ public class BitbucketActivityProvider implements GitActivityProvider {
 
     private static final Logger LOG = getLogger(lookup().lookupClass());
     private static final String PLATFORM = "BITBUCKET";
+    /** Cap on repos queried per sync — bounds Bitbucket API usage (one PR-list call per repo). */
+    private static final int MAX_REPOS_PER_SYNC = 50;
 
     private final GitOAuthTokenRepository tokenRepository;
     private final GitActivityRawEventRepository eventRepository;
@@ -226,24 +231,65 @@ public class BitbucketActivityProvider implements GitActivityProvider {
 
     // ── Sync logic ──────────────────────────────────────────────────────────
 
-    @SuppressWarnings("unchecked")
     private void syncPullRequests(String accountId, String token) {
-        // Fetch PRs updated in the last 90 days so we pick up recently merged/declined PRs.
+        // PRs updated in the last 90 days, so we pick up recently merged/declined ones too.
         final String cutoff = Instant.now().minus(90, ChronoUnit.DAYS)
             .toString().replace("Z", "+00:00");
-        final String url = "https://api.bitbucket.org/2.0/pullrequests/" + accountId
-            + "?state=ALL&sort=-updated_on&pagelen=50&q=updated_on>\"" + cutoff + "\"";
 
-        final List<Map<String, Object>> prs = fetchPaged(url, token, 3);
+        // The user-centric GET /2.0/pullrequests/{account} endpoint was removed (404), so list the
+        // repos the user can read and query each for PRs they authored.
+        final List<String> repoFullNames = extractRepoFullNames(
+            fetchPaged("https://api.bitbucket.org/2.0/user/permissions/repositories?pagelen="
+                + MAX_REPOS_PER_SYNC, token, 1),
+            MAX_REPOS_PER_SYNC);
+
         int saved = 0;
-
-        for (Map<String, Object> pr : prs) {
-            saved += processPr(pr, accountId, token);
+        for (String repoFullName : repoFullNames) {
+            final String[] parts = repoFullName.split("/", 2);
+            if (parts.length == 2) {
+                saved += syncRepoPullRequests(accountId, parts[0], parts[1], cutoff, token);
+            }
         }
 
         if (saved > 0) {
-            LOG.info("Synced {} new Bitbucket event(s) for user {}", saved, accountId);
+            LOG.info("Synced {} new Bitbucket event(s) for user {} across {} repo(s)",
+                saved, accountId, repoFullNames.size());
         }
+    }
+
+    /**
+     * Extracts repo full-names ({@code workspace/repo}) from a
+     * {@code GET /2.0/user/permissions/repositories} page. Package-private for tests.
+     */
+    static List<String> extractRepoFullNames(List<Map<String, Object>> permissionEntries, int max) {
+        final List<String> names = new ArrayList<>();
+        for (Map<String, Object> entry : permissionEntries) {
+            if (names.size() >= max) break;
+            if (entry.get("repository") instanceof Map<?, ?> rm) {
+                @SuppressWarnings("unchecked")
+                final String fullName = strOrEmpty(((Map<String, Object>) rm).get("full_name"));
+                if (!fullName.isEmpty()) {
+                    names.add(fullName);
+                }
+            }
+        }
+        return names;
+    }
+
+    /** Fetches the user's PRs in one repo (any state, last 90 days) and persists derived events. */
+    private int syncRepoPullRequests(String accountId, String workspace, String repoSlug,
+                                     String cutoff, String token) {
+        final String q = "author.account_id=\"" + accountId + "\" AND updated_on>\"" + cutoff + "\"";
+        final String url = "https://api.bitbucket.org/2.0/repositories/" + workspace + "/" + repoSlug
+            + "/pullrequests?state=OPEN&state=MERGED&state=DECLINED&state=SUPERSEDED"
+            + "&q=" + URLEncoder.encode(q, StandardCharsets.UTF_8).replace("+", "%20")
+            + "&sort=-updated_on&pagelen=50";
+
+        int saved = 0;
+        for (Map<String, Object> pr : fetchPaged(url, token, 1)) {
+            saved += processPr(pr, accountId, token);
+        }
+        return saved;
     }
 
     @SuppressWarnings("unchecked")
