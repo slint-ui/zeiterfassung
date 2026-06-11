@@ -151,6 +151,7 @@ class BitbucketActivityProviderTest {
     @Nested
     class ListRepositoriesParsing {
 
+        // /2.0/user/permissions/repositories wraps each repo under a "repository" object.
         private Map<String, Object> repo(String fullName, boolean isPrivate, String htmlHref) {
             final Map<String, Object> r = new java.util.HashMap<>();
             r.put("full_name", fullName);
@@ -158,7 +159,7 @@ class BitbucketActivityProviderTest {
             if (htmlHref != null) {
                 r.put("links", Map.of("html", Map.of("href", htmlHref)));
             }
-            return r;
+            return Map.of("permission", "read", "repository", r);
         }
 
         @Test
