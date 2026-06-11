@@ -897,4 +897,28 @@ class GitHubActivityProviderTest {
             assertThat(GitHubActivityProvider.parseInstallationRepositories(null).repos()).isEmpty();
         }
     }
+
+    // ── withUpdatedTitle (PR title edits) ──────────────────────────────────────
+
+    @Nested
+    class WithUpdatedTitle {
+
+        @Test
+        void replacesExistingTitle() {
+            assertThat(GitHubActivityProvider.withUpdatedTitle("Opened PR #5: Old title", "New title"))
+                .isEqualTo("Opened PR #5: New title");
+        }
+
+        @Test
+        void appendsWhenSummaryHasNoTitle() {
+            assertThat(GitHubActivityProvider.withUpdatedTitle("Opened PR #5", "Title"))
+                .isEqualTo("Opened PR #5: Title");
+        }
+
+        @Test
+        void keepsSummaryWhenTitleBlank() {
+            assertThat(GitHubActivityProvider.withUpdatedTitle("Opened PR #5: Old", ""))
+                .isEqualTo("Opened PR #5: Old");
+        }
+    }
 }

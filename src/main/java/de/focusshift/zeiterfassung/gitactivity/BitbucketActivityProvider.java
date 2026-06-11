@@ -338,12 +338,8 @@ public class BitbucketActivityProvider implements GitActivityProvider {
 
         final var existing = eventRepository.findByPlatformEventId(prEventId);
         if (existing.isPresent()) {
-            // Update state if PR was merged/closed since we last synced
             final GitActivityRawEventEntity e = existing.get();
-            final boolean stateChanged = !e.getEventSummary().startsWith(verb);
-            if (stateChanged && !"OPEN".equals(state)) {
-                e.setEventSummary(summary);
-                e.setEventTimestamp(ts);
+            if (applyPrUpdate(e, title, summary, verb, state, ts)) {
                 eventRepository.save(e);
             }
         } else {
@@ -379,6 +375,28 @@ public class BitbucketActivityProvider implements GitActivityProvider {
         }
 
         return saved;
+    }
+
+    /**
+     * Reflects late changes to an existing PR event: the title can be edited while the PR is open,
+     * and the state can transition (merged/closed) since the last sync. Mutates {@code e} and
+     * returns true if anything changed. Package-private for tests.
+     */
+    static boolean applyPrUpdate(GitActivityRawEventEntity e, String title, String summary,
+                                 String verb, String state, Instant ts) {
+        final boolean stateChanged = !e.getEventSummary().startsWith(verb);
+        final boolean isStateTransition = stateChanged && !"OPEN".equals(state);
+        final String currentTitle = e.getAnchorTitle() == null ? "" : e.getAnchorTitle();
+        final boolean titleChanged = !title.equals(currentTitle);
+        if (!titleChanged && !isStateTransition) {
+            return false;
+        }
+        e.setAnchorTitle(title);
+        e.setEventSummary(summary);
+        if (isStateTransition) {
+            e.setEventTimestamp(ts);
+        }
+        return true;
     }
 
     @SuppressWarnings("unchecked")
