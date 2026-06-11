@@ -120,9 +120,9 @@ public class BitbucketActivityProvider implements GitActivityProvider {
      * Lists repositories the connected user can read, for the account page's "repositories the
      * app can read" disclosure. Bounded by {@code max}.
      *
-     * <p>Workspace-scoped: Bitbucket sunset the cross-workspace listing endpoints (CHANGE-2770,
-     * removed 2026-04-14), so we enumerate the user's workspaces and list each one's repositories
-     * ({@code GET /2.0/workspaces} → {@code GET /2.0/repositories/{workspace}}).
+     * <p>Workspace-scoped: Bitbucket removed the cross-workspace listing/enumeration endpoints
+     * (CHANGE-2770), so the repos come from the admin-configured workspace(s) — see
+     * {@link #fetchAccessibleRepos}.
      */
     public RepoListView listRepositories(Long userLocalId, int max) {
         final GitOAuthTokenEntity token = tokenRepository
@@ -151,24 +151,45 @@ public class BitbucketActivityProvider implements GitActivityProvider {
     }
 
     /**
-     * Lists repositories the user can read across all their workspaces, as raw Bitbucket repo
-     * objects, capped at {@code max}. Workspace-scoped per CHANGE-2770:
-     * {@code GET /2.0/workspaces} then {@code GET /2.0/repositories/{workspace}}.
+     * Lists repositories the user can read, as raw Bitbucket repo objects, capped at {@code max}.
+     *
+     * <p>Bitbucket removed every cross-workspace listing endpoint — including workspace enumeration
+     * ({@code /2.0/workspaces} and {@code /2.0/user/permissions/workspaces}, both 410, CHANGE-2770) —
+     * so there is no API way to discover a user's workspaces. We scan the admin-configured
+     * workspace(s) via {@code GET /2.0/repositories/{workspace}} (which is still supported).
      */
     private List<Map<String, Object>> fetchAccessibleRepos(String token, int max) {
+        final List<String> workspaces = parseWorkspaces(
+            platformSettingsService.getBitbucketSettings().orgName());
+        if (workspaces.isEmpty()) {
+            LOG.warn("No Bitbucket workspace configured (Settings -> Git Activity -> Workspace slug); "
+                + "cannot list repositories — Bitbucket removed workspace discovery (CHANGE-2770).");
+            return List.of();
+        }
         final List<Map<String, Object>> repos = new ArrayList<>();
-        for (Map<String, Object> workspace : fetchPaged(
-                "https://api.bitbucket.org/2.0/workspaces?pagelen=100", token, 1)) {
+        for (String workspace : workspaces) {
             if (repos.size() >= max) break;
-            final String slug = strOrEmpty(workspace.get("slug"));
-            if (slug.isEmpty()) continue;
             for (Map<String, Object> repo : fetchPaged(
-                    "https://api.bitbucket.org/2.0/repositories/" + slug + "?pagelen=" + max, token, 1)) {
+                    "https://api.bitbucket.org/2.0/repositories/" + workspace + "?pagelen=" + max, token, 1)) {
                 if (repos.size() >= max) break;
                 repos.add(repo);
             }
         }
         return repos;
+    }
+
+    /**
+     * Parses the admin "Workspace slug" setting (comma/space-separated) into workspace slugs.
+     * Package-private for tests.
+     */
+    static List<String> parseWorkspaces(String workspaceSetting) {
+        if (workspaceSetting == null || workspaceSetting.isBlank()) {
+            return List.of();
+        }
+        return java.util.Arrays.stream(workspaceSetting.split("[,\\s]+"))
+            .map(String::trim)
+            .filter(s -> !s.isEmpty())
+            .toList();
     }
 
     /** Maps one Bitbucket repository object to a {@link RepoRef}. Package-private for tests. */
