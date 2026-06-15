@@ -107,21 +107,31 @@ class NotificationServiceImpl implements NotificationService {
             if (days.isEmpty() || !days.getFirst().overtime().isNegative()) continue;
 
             LOG.info("Sending lock warning to user={} for date={}", user.userLocalId().value(), warningDate);
-            sendLockWarningEmail(user, warningDate, daysAhead);
+            sendLockWarningEmail(user, days.getFirst(), warningDate, daysAhead);
         }
     }
 
-    private void sendLockWarningEmail(User user, LocalDate warningDate, int daysUntilLock) {
+    private void sendLockWarningEmail(User user, TimeEntryDay day, LocalDate warningDate, int daysUntilLock) {
         final String dayName = warningDate.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH);
+
+        final long workedMinutes = day.workDuration().durationInMinutes().toMinutes();
+        final long targetMinutes = day.shouldWorkingHours().durationInMinutes().toMinutes();
+        final long remainingMinutes = Math.max(0, targetMinutes - workedMinutes);
+        final boolean nothingLogged = workedMinutes == 0;
 
         final Context ctx = new Context(EMailConstants.DEFAULT_LOCALE);
         ctx.setVariable("name", user.givenName());
         ctx.setVariable("date", DATE_FORMAT.format(warningDate));
         ctx.setVariable("dayName", dayName);
         ctx.setVariable("daysUntilLock", daysUntilLock);
+        ctx.setVariable("nothingLogged", nothingLogged);
+        ctx.setVariable("worked", formatDuration(workedMinutes));
+        ctx.setVariable("target", formatDuration(targetMinutes));
+        ctx.setVariable("remaining", formatDuration(remainingMinutes));
 
         final String body = mailTemplateEngine.process("text/notification-lock-warning", ctx);
-        final String subject = "Reminder: No time entries for " + dayName + ", " + DATE_FORMAT.format(warningDate);
+        final String subject = (nothingLogged ? "Reminder: No time entries for " : "Reminder: Incomplete time entries for ")
+            + dayName + ", " + DATE_FORMAT.format(warningDate);
 
         try {
             eMailService.sendMail(user.email().value(), subject, body, "");
