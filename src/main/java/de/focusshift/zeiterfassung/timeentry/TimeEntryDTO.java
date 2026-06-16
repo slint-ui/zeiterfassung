@@ -125,7 +125,9 @@ public class TimeEntryDTO {
     }
 
     public void setDuration(String duration) {
-        this.duration = duration;
+        // Normalize flexible user input (e.g. "830", "8:30", "8,5") to canonical HH:mm
+        // before bean validation runs, so the leading zero no longer has to be typed.
+        this.duration = DurationStringNormalizer.normalize(duration);
     }
 
     public String getComment() {
