@@ -4,6 +4,7 @@ import de.focusshift.zeiterfassung.email.EMailService;
 import de.focusshift.zeiterfassung.settings.LockTimeEntriesSettings;
 import de.focusshift.zeiterfassung.tenancy.tenant.TenantContextRunner;
 import de.focusshift.zeiterfassung.tenancy.user.EMailAddress;
+import de.focusshift.zeiterfassung.timeentry.ShouldWorkingHours;
 import de.focusshift.zeiterfassung.timeentry.TimeEntryDay;
 import de.focusshift.zeiterfassung.timeentry.TimeEntryDayService;
 import de.focusshift.zeiterfassung.timeentry.TimeEntryLockService;
@@ -14,6 +15,7 @@ import de.focusshift.zeiterfassung.user.UserSettingsService;
 import de.focusshift.zeiterfassung.usermanagement.User;
 import de.focusshift.zeiterfassung.usermanagement.UserLocalId;
 import de.focusshift.zeiterfassung.usermanagement.UserManagementService;
+import de.focusshift.zeiterfassung.workduration.WorkDuration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -24,6 +26,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.thymeleaf.ITemplateEngine;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.context.IContext;
+import org.thymeleaf.spring6.SpringTemplateEngine;
+import org.thymeleaf.templatemode.TemplateMode;
+import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -31,12 +36,14 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -64,7 +71,8 @@ class NotificationServiceImplTest {
     void setUp() {
         sut = new NotificationServiceImpl(tenantContextRunner, userManagementService, userSettingsService,
             timeEntryDayService, timeEntryLockService, eMailService, mailTemplateEngine, clock);
-        when(tenantContextRunner.runForEachActiveTenant(any(Runnable.class)))
+        // not exercised by the pure template-rendering tests, so stub leniently
+        lenient().when(tenantContextRunner.runForEachActiveTenant(any(Runnable.class)))
             .thenAnswer(inv -> inv.getArgument(0, Runnable.class));
     }
 
@@ -206,6 +214,124 @@ class NotificationServiceImplTest {
                 .extracting(ctx -> ctx.getVariable("daysUntilLock"))
                 .containsExactlyInAnyOrder(3, 1);
         }
+
+        @Test
+        void includesLoggedTargetAndMissingForPartiallyLoggedDay() throws Exception {
+            when(timeEntryLockService.getLockTimeEntriesSettings())
+                .thenReturn(new LockTimeEntriesSettings(true, 5));
+            when(userManagementService.findAllUsers()).thenReturn(List.of(user(1L)));
+            UserSettings s = settings(true, 2);
+            when(userSettingsService.getUserSettings(any(UserIdComposite.class))).thenReturn(s);
+
+            // logged 3h of an 8h day → something logged, 5h still missing
+            stubDayService(new UserLocalId(1L), LocalDate.of(2025, 6, 5), Duration.ofHours(3), Duration.ofHours(8));
+            when(mailTemplateEngine.process(eq("text/notification-lock-warning"), any(IContext.class)))
+                .thenReturn("body");
+
+            sut.sendLockWarnings();
+
+            ArgumentCaptor<Context> ctxCaptor = ArgumentCaptor.forClass(Context.class);
+            verify(mailTemplateEngine).process(eq("text/notification-lock-warning"), ctxCaptor.capture());
+            Context ctx = ctxCaptor.getValue();
+            assertThat(ctx.getVariable("nothingLogged")).isEqualTo(false);
+            assertThat(ctx.getVariable("worked")).isEqualTo("03:00");
+            assertThat(ctx.getVariable("target")).isEqualTo("08:00");
+            assertThat(ctx.getVariable("remaining")).isEqualTo("05:00");
+
+            ArgumentCaptor<String> subjectCaptor = ArgumentCaptor.forClass(String.class);
+            verify(eMailService).sendMail(eq("email@example.org"), subjectCaptor.capture(), eq("body"), eq(""));
+            assertThat(subjectCaptor.getValue()).startsWith("Reminder: Incomplete time entries for ");
+        }
+
+        @Test
+        void marksNothingLoggedAndShowsFullTargetAsMissingForEmptyDay() throws Exception {
+            when(timeEntryLockService.getLockTimeEntriesSettings())
+                .thenReturn(new LockTimeEntriesSettings(true, 5));
+            when(userManagementService.findAllUsers()).thenReturn(List.of(user(1L)));
+            UserSettings s = settings(true, 2);
+            when(userSettingsService.getUserSettings(any(UserIdComposite.class))).thenReturn(s);
+
+            // nothing logged on an 8h day → whole target missing
+            stubDayService(new UserLocalId(1L), LocalDate.of(2025, 6, 5), Duration.ZERO, Duration.ofHours(8));
+            when(mailTemplateEngine.process(eq("text/notification-lock-warning"), any(IContext.class)))
+                .thenReturn("body");
+
+            sut.sendLockWarnings();
+
+            ArgumentCaptor<Context> ctxCaptor = ArgumentCaptor.forClass(Context.class);
+            verify(mailTemplateEngine).process(eq("text/notification-lock-warning"), ctxCaptor.capture());
+            Context ctx = ctxCaptor.getValue();
+            assertThat(ctx.getVariable("nothingLogged")).isEqualTo(true);
+            assertThat(ctx.getVariable("worked")).isEqualTo("00:00");
+            assertThat(ctx.getVariable("target")).isEqualTo("08:00");
+            assertThat(ctx.getVariable("remaining")).isEqualTo("08:00");
+
+            ArgumentCaptor<String> subjectCaptor = ArgumentCaptor.forClass(String.class);
+            verify(eMailService).sendMail(eq("email@example.org"), subjectCaptor.capture(), eq("body"), eq(""));
+            assertThat(subjectCaptor.getValue()).startsWith("Reminder: No time entries for ");
+        }
+    }
+
+    @Nested
+    class TemplateRendering {
+
+        private final ITemplateEngine engine = realTextTemplateEngine();
+
+        @Test
+        void partiallyLoggedDayBodyShowsLoggedTargetAndMissing() {
+            Context ctx = baseContext(false);
+            ctx.setVariable("worked", "03:00");
+            ctx.setVariable("target", "08:00");
+            ctx.setVariable("remaining", "05:00");
+
+            String body = engine.process("text/notification-lock-warning", ctx);
+
+            assertThat(body)
+                .contains("not fully logged yet")
+                .contains("Logged:").contains("03:00")
+                .contains("Target:").contains("08:00")
+                .contains("Missing:").contains("05:00")
+                .contains("locked in 2 days")
+                .doesNotContain("you have no time entries");
+        }
+
+        @Test
+        void emptyDayBodyUsesNoTimeEntriesWording() {
+            Context ctx = baseContext(true);
+            ctx.setVariable("worked", "00:00");
+            ctx.setVariable("target", "08:00");
+            ctx.setVariable("remaining", "08:00");
+
+            String body = engine.process("text/notification-lock-warning", ctx);
+
+            assertThat(body)
+                .contains("you have no time entries")
+                .contains("locked in 2 days")
+                .doesNotContain("Logged:")
+                .doesNotContain("Missing:");
+        }
+
+        private Context baseContext(boolean nothingLogged) {
+            Context ctx = new Context(Locale.GERMAN);
+            ctx.setVariable("name", "Test");
+            ctx.setVariable("dayName", "Thursday");
+            ctx.setVariable("date", "05.06.2025");
+            ctx.setVariable("daysUntilLock", 2);
+            ctx.setVariable("nothingLogged", nothingLogged);
+            return ctx;
+        }
+
+        private ITemplateEngine realTextTemplateEngine() {
+            ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver();
+            resolver.setResolvablePatterns(Set.of("text/*"));
+            resolver.setPrefix("/mail/");
+            resolver.setSuffix(".txt");
+            resolver.setTemplateMode(TemplateMode.TEXT);
+            resolver.setCharacterEncoding("UTF-8");
+            SpringTemplateEngine templateEngine = new SpringTemplateEngine();
+            templateEngine.addTemplateResolver(resolver);
+            return templateEngine;
+        }
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
@@ -213,6 +339,20 @@ class NotificationServiceImplTest {
     private void stubDayService(UserLocalId userLocalId, LocalDate warningDate, Duration overtime) {
         final TimeEntryDay day = mock(TimeEntryDay.class);
         when(day.overtime()).thenReturn(overtime);
+        // worked/should are only read once a warning is actually sent (negative overtime);
+        // stub leniently so the skip-path tests don't trip strict-stubbing checks.
+        lenient().when(day.workDuration()).thenReturn(WorkDuration.ZERO);
+        lenient().when(day.shouldWorkingHours()).thenReturn(new ShouldWorkingHours(Duration.ofHours(8)));
+        when(timeEntryDayService.getTimeEntryDays(eq(warningDate), eq(warningDate.plusDays(1)), eq(userLocalId)))
+            .thenReturn(List.of(day));
+    }
+
+    /** Variant with explicit worked/should durations so the email figures can be asserted. */
+    private void stubDayService(UserLocalId userLocalId, LocalDate warningDate, Duration worked, Duration should) {
+        final TimeEntryDay day = mock(TimeEntryDay.class);
+        when(day.overtime()).thenReturn(worked.minus(should));
+        when(day.workDuration()).thenReturn(new WorkDuration(worked));
+        when(day.shouldWorkingHours()).thenReturn(new ShouldWorkingHours(should));
         when(timeEntryDayService.getTimeEntryDays(eq(warningDate), eq(warningDate.plusDays(1)), eq(userLocalId)))
             .thenReturn(List.of(day));
     }

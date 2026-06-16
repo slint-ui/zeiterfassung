@@ -1,6 +1,15 @@
 Hi [(${name})],
 
+[# th:if="${nothingLogged}"]
 this is a reminder that you have no time entries for [(${dayName})], [(${date})].
+[/]
+[# th:if="${!nothingLogged}"]
+this is a reminder that your time for [(${dayName})], [(${date})] is not fully logged yet:
+
+  Logged:    [(${worked})]
+  Target:    [(${target})]
+  Missing:   [(${remaining})]
+[/]
 
 This day will be locked in [(${daysUntilLock})] days and can no longer be edited afterwards.
 
