@@ -382,14 +382,31 @@ public class BitbucketActivityProvider implements GitActivityProvider {
             final int commentId = toInt(comment.get("id"));
             if (commentId == 0) continue;
 
+            final boolean isDraft = Boolean.TRUE.equals(comment.get("pending"));
             final String commentEventId = accountId + "_bitbucket_pr_"
                 + repoFullName.replace("/", "_") + "_" + prId + "_comment_" + commentId;
-            if (eventRepository.existsByPlatformEventId(commentEventId)) continue;
 
             final String dateStr = strOrEmpty(comment.get("created_on"));
             final Instant ts = dateStr.isEmpty() ? Instant.now() : parseTs(dateStr);
             final Map<String, Object> content = (Map<String, Object>) comment.get("content");
             final String body = content != null ? firstLine(strOrEmpty(content.get("raw")), 120) : "";
+            final String icon = isDraft ? "✏️" : "💬";
+            final String verb = isDraft ? "Started draft comment on PR #" : "Commented on PR #";
+            final String summary = verb + prId
+                + (prTitle.isEmpty() ? "" : ": " + prTitle)
+                + (body.isEmpty() ? "" : " — " + body);
+
+            final var existing = eventRepository.findByPlatformEventId(commentEventId);
+            if (existing.isPresent()) {
+                // Draft → submitted: update the event so the activity feed reflects the final state.
+                if (!isDraft && existing.get().getEventIcon().equals("✏️")) {
+                    final GitActivityRawEventEntity e = existing.get();
+                    e.setEventIcon(icon);
+                    e.setEventSummary(summary);
+                    eventRepository.save(e);
+                }
+                continue;
+            }
 
             final GitActivityRawEventEntity e = new GitActivityRawEventEntity();
             e.setPlatformEventId(commentEventId);
@@ -400,10 +417,8 @@ public class BitbucketActivityProvider implements GitActivityProvider {
             e.setAnchorType("PR");
             e.setAnchorId(String.valueOf(prId));
             e.setAnchorTitle(prTitle);
-            e.setEventIcon("💬");
-            e.setEventSummary("Commented on PR #" + prId
-                + (prTitle.isEmpty() ? "" : ": " + prTitle)
-                + (body.isEmpty() ? "" : " — " + body));
+            e.setEventIcon(icon);
+            e.setEventSummary(summary);
             e.setEventTimestamp(ts);
             eventRepository.save(e);
             saved++;
