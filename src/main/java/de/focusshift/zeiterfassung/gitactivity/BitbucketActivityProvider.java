@@ -363,14 +363,20 @@ public class BitbucketActivityProvider implements GitActivityProvider {
             saved++;
         }
 
-        // For OPEN PRs: sync commits and activity (approvals/comments)
-        if ("OPEN".equals(state)) {
+        // Commits and approvals: OPEN PRs only.
+        // Comments: OPEN + recently-closed PRs (so comments on just-merged PRs are captured).
+        final boolean isOpen = "OPEN".equals(state);
+        final boolean isRecentlyClosed = !isOpen && ts.isAfter(Instant.now().minus(14, ChronoUnit.DAYS));
+        if (isOpen || isRecentlyClosed) {
             final String[] repoParts = repoFullName.split("/", 2);
             if (repoParts.length == 2) {
-                final String workspace = repoParts[0];
-                final String repoSlug  = repoParts[1];
-                saved += syncPrCommits(accountId, repoFullName, workspace, repoSlug, prId, headBranch, token);
-                saved += syncPrActivity(accountId, repoFullName, workspace, repoSlug, prId, title, token);
+                final String ws = repoParts[0];
+                final String slug = repoParts[1];
+                if (isOpen) {
+                    saved += syncPrCommits(accountId, repoFullName, ws, slug, prId, headBranch, token);
+                    saved += syncPrActivity(accountId, repoFullName, ws, slug, prId, title, token);
+                }
+                saved += syncPrComments(accountId, repoFullName, ws, slug, prId, title, token);
             }
         }
 
@@ -497,42 +503,73 @@ public class BitbucketActivityProvider implements GitActivityProvider {
                 }
             }
 
-            // PR-level comment
-            final Map<String, Object> comment = (Map<String, Object>) activity.get("comment");
-            if (comment != null) {
-                final Map<String, Object> commentUser = (Map<String, Object>) comment.get("user");
-                final String commenterAccountId = commentUser != null ? strOrEmpty(commentUser.get("account_id")) : "";
-                if (!commenterAccountId.isEmpty() && commenterAccountId.equals(accountId)) {
-                    final int commentId = toInt(comment.get("id"));
-                    if (commentId != 0) {
-                        final String commentEventId = accountId + "_bitbucket_pr_"
-                            + repoFullName.replace("/", "_") + "_" + prId + "_comment_" + commentId;
-                        if (!eventRepository.existsByPlatformEventId(commentEventId)) {
-                            final String dateStr = strOrEmpty(comment.get("created_on"));
-                            final Instant ts = dateStr.isEmpty() ? Instant.now() : parseTs(dateStr);
-                            final Map<String, Object> content = (Map<String, Object>) comment.get("content");
-                            final String body = content != null
-                                ? firstLine(strOrEmpty(content.get("raw")), 120) : "";
-                            final GitActivityRawEventEntity e = new GitActivityRawEventEntity();
-                            e.setPlatformEventId(commentEventId);
-                            e.setPlatformUsername(accountId);
-                            e.setPlatform(PLATFORM);
-                            e.setEventType("PullRequestReviewCommentEvent");
-                            e.setRepoName(repoFullName);
-                            e.setAnchorType("PR");
-                            e.setAnchorId(String.valueOf(prId));
-                            e.setAnchorTitle(prTitle);
-                            e.setEventIcon("💬");
-                            e.setEventSummary("Commented on PR #" + prId
-                                + (prTitle.isEmpty() ? "" : ": " + prTitle)
-                                + (body.isEmpty() ? "" : " — " + body));
-                            e.setEventTimestamp(ts);
-                            eventRepository.save(e);
-                            saved++;
-                        }
-                    }
+        }
+        return saved;
+    }
+
+    @SuppressWarnings("unchecked")
+    private int syncPrComments(String accountId, String repoFullName,
+                                String workspace, String repoSlug,
+                                int prId, String prTitle, String token) {
+        final String url = "https://api.bitbucket.org/2.0/repositories/"
+            + workspace + "/" + repoSlug + "/pullrequests/" + prId + "/comments?pagelen=50";
+
+        // Up to 3 pages (150 comments) — covers large code-review PRs without unbounded API calls.
+        // The /comments endpoint (unlike /activity) includes inline diff comments and also returns
+        // pending (batched) comments when authenticated as the author.
+        final List<Map<String, Object>> comments = fetchPaged(url, token, 3);
+        int saved = 0;
+
+        for (Map<String, Object> comment : comments) {
+            if (Boolean.TRUE.equals(comment.get("deleted"))) continue;
+
+            final Map<String, Object> user = (Map<String, Object>) comment.get("user");
+            final String commenterAccountId = user != null ? strOrEmpty(user.get("account_id")) : "";
+            if (commenterAccountId.isEmpty() || !commenterAccountId.equals(accountId)) continue;
+
+            final int commentId = toInt(comment.get("id"));
+            if (commentId == 0) continue;
+
+            final boolean isDraft = Boolean.TRUE.equals(comment.get("pending"));
+            final String commentEventId = accountId + "_bitbucket_pr_"
+                + repoFullName.replace("/", "_") + "_" + prId + "_comment_" + commentId;
+
+            final String dateStr = strOrEmpty(comment.get("created_on"));
+            final Instant ts = dateStr.isEmpty() ? Instant.now() : parseTs(dateStr);
+            final Map<String, Object> content = (Map<String, Object>) comment.get("content");
+            final String body = content != null ? firstLine(strOrEmpty(content.get("raw")), 120) : "";
+            final String icon = isDraft ? "✏️" : "💬";
+            final String verb = isDraft ? "Started draft comment on PR #" : "Commented on PR #";
+            final String summary = verb + prId
+                + (prTitle.isEmpty() ? "" : ": " + prTitle)
+                + (body.isEmpty() ? "" : " — " + body);
+
+            final var existing = eventRepository.findByPlatformEventId(commentEventId);
+            if (existing.isPresent()) {
+                // Draft → submitted: update the event so the activity feed reflects the final state.
+                if (!isDraft && existing.get().getEventIcon().equals("✏️")) {
+                    final GitActivityRawEventEntity e = existing.get();
+                    e.setEventIcon(icon);
+                    e.setEventSummary(summary);
+                    eventRepository.save(e);
                 }
+                continue;
             }
+
+            final GitActivityRawEventEntity e = new GitActivityRawEventEntity();
+            e.setPlatformEventId(commentEventId);
+            e.setPlatformUsername(accountId);
+            e.setPlatform(PLATFORM);
+            e.setEventType("PullRequestReviewCommentEvent");
+            e.setRepoName(repoFullName);
+            e.setAnchorType("PR");
+            e.setAnchorId(String.valueOf(prId));
+            e.setAnchorTitle(prTitle);
+            e.setEventIcon(icon);
+            e.setEventSummary(summary);
+            e.setEventTimestamp(ts);
+            eventRepository.save(e);
+            saved++;
         }
         return saved;
     }
