@@ -104,13 +104,6 @@
                       <th
                         scope="col"
                         class="text-right"
-                        th:text="#{report.aggregated.table.head.delta}"
-                      >
-                        Abweichung
-                      </th>
-                      <th
-                        scope="col"
-                        class="text-right"
                         th:text="#{report.aggregated.table.head.worked}"
                       >
                         Geleistet
@@ -121,6 +114,13 @@
                         th:text="#{report.aggregated.table.head.should}"
                       >
                         Geplant
+                      </th>
+                      <th
+                        scope="col"
+                        class="text-right"
+                        th:text="#{report.aggregated.table.head.delta}"
+                      >
+                        Abweichung
                       </th>
                     </tr>
                   </thead>
@@ -149,18 +149,6 @@
                           <span th:text="${user.fullName}"> Bruce Wayne </span>
                         </div>
                       </th>
-                      <td class="text-right tabular-nums">
-                        <span th:if="${userDurationAggregation.deltaNegative}"
-                          >-</span
-                        >
-                        <span
-                          th:if="${not userDurationAggregation.deltaNegative}"
-                          >+</span
-                        >
-                        <span th:text="${{userDurationAggregation.delta}}"
-                          >00:00</span
-                        >
-                      </td>
                       <td
                         class="text-right tabular-nums"
                         th:text="${{userDurationAggregation.worked}}"
@@ -172,6 +160,18 @@
                         th:text="${{userDurationAggregation.should}}"
                       >
                         -
+                      </td>
+                      <td class="text-right tabular-nums">
+                        <span th:if="${userDurationAggregation.deltaNegative}"
+                          >-</span
+                        >
+                        <span
+                          th:if="${not userDurationAggregation.deltaNegative}"
+                          >+</span
+                        >
+                        <span th:text="${{userDurationAggregation.delta}}"
+                          >00:00</span
+                        >
                       </td>
                     </tr>
                   </tbody>
