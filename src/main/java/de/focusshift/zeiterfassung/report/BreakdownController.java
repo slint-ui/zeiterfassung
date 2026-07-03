@@ -10,6 +10,7 @@ import de.focusshift.zeiterfassung.search.UserSearchViewHelper;
 import de.focusshift.zeiterfassung.security.CurrentUser;
 import de.focusshift.zeiterfassung.security.oidc.CurrentOidcUser;
 import de.focusshift.zeiterfassung.timeclock.HasTimeClock;
+import de.focusshift.zeiterfassung.usermanagement.User;
 import de.focusshift.zeiterfassung.usermanagement.UserLocalId;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -46,15 +47,18 @@ class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
 
     private final BreakdownService breakdownService;
     private final ReportPermissionService reportPermissionService;
+    private final ReportViewHelper reportViewHelper;
     private final UserSearchViewHelper userSearchViewHelper;
     private final Clock clock;
 
     BreakdownController(BreakdownService breakdownService,
                         ReportPermissionService reportPermissionService,
+                        ReportViewHelper reportViewHelper,
                         UserSearchViewHelper userSearchViewHelper,
                         Clock clock) {
         this.breakdownService = breakdownService;
         this.reportPermissionService = reportPermissionService;
+        this.reportViewHelper = reportViewHelper;
         this.userSearchViewHelper = userSearchViewHelper;
         this.clock = clock;
     }
@@ -65,6 +69,7 @@ class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
         @RequestParam(required = false) LocalDate from,
         @RequestParam(required = false) LocalDate to,
         @RequestParam(value = "user", required = false) List<Long> userLocalIdValues,
+        @RequestParam(value = "everyone", required = false) String allUsersSelectedParam,
         Model model, @CurrentUser CurrentOidcUser currentUser
     ) {
         final LocalDate today = LocalDate.now(clock);
@@ -87,10 +92,13 @@ class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
             }
         }
 
-        // Resolve permitted users
-        final List<UserLocalId> allPermittedIds = reportPermissionService.findAllPermittedUserLocalIdsForCurrentUser();
+        final boolean allUsersSelected = allUsersSelectedParam != null;
+        final List<User> allUsers = reportPermissionService.findAllPermittedUsersForCurrentUser();
+        final List<UserLocalId> allPermittedIds = allUsers.stream()
+            .map(User::userLocalId).toList();
+
         final List<UserLocalId> selectedIds;
-        if (userLocalIdValues == null || userLocalIdValues.isEmpty()) {
+        if (allUsersSelected || userLocalIdValues == null || userLocalIdValues.isEmpty()) {
             selectedIds = allPermittedIds;
         } else {
             selectedIds = userLocalIdValues.stream()
@@ -107,6 +115,11 @@ class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
         model.addAttribute("preset", preset);
         model.addAttribute("selectedUserIds", userLocalIdValues == null ? List.of() : userLocalIdValues);
         model.addAttribute("canViewAllUsers", reportPermissionService.currentUserHasPermissionForAllUsers());
+
+        final String filterUrl = "custom".equals(preset)
+            ? "/report/breakdown?preset=custom&from=" + rangeFrom + "&to=" + rangeToInclusive
+            : "/report/breakdown?preset=" + preset;
+        reportViewHelper.addUserFilterModelAttributes(model, allUsersSelected, allUsers, selectedIds, filterUrl);
 
         // Tab state
         model.addAttribute("weekAriaCurrent", "false");

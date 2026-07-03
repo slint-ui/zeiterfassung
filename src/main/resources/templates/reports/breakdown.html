@@ -8,14 +8,13 @@
 <!-- Main breakdown content, injected into user-report.html via overrideContentFragment -->
 <th:block th:fragment="content">
 
+  <!-- Users picker (admins only) -->
+  <div class="mb-4">
+    <form th:replace="~{reports/_user-select::form}" />
+  </div>
+
   <!-- Date range selector -->
   <form th:action="@{/report/breakdown}" method="get" class="mb-8">
-    <th:block th:if="${canViewAllUsers and not #lists.isEmpty(selectedUserIds)}">
-      <th:block th:each="uid : ${selectedUserIds}">
-        <input type="hidden" name="user" th:value="${uid}"/>
-      </th:block>
-    </th:block>
-
     <div class="flex flex-wrap items-end gap-4">
       <div class="flex gap-2">
         <label class="flex items-center gap-1.5 cursor-pointer">
@@ -35,20 +34,20 @@
         </label>
       </div>
 
-      <div class="flex items-end gap-2" th:classappend="${preset != 'custom'} ? 'opacity-40 pointer-events-none' : ''">
+      <div class="flex items-end gap-2" th:classappend="${preset != 'custom'} ? 'opacity-40' : ''">
         <div class="flex flex-col gap-1">
           <label for="from" class="text-xs text-gray-500 dark:text-zinc-400" th:text="#{report.breakdown.from}">From</label>
           <input type="date" id="from" name="from"
                  th:value="${#temporals.format(from, 'yyyy-MM-dd')}"
                  class="border border-gray-300 dark:border-zinc-600 rounded px-2 py-1 text-sm dark:bg-zinc-800"
-                 onclick="document.getElementById('preset-custom').checked=true"/>
+                 onchange="document.getElementById('preset-custom').checked=true"/>
         </div>
         <div class="flex flex-col gap-1">
           <label for="to" class="text-xs text-gray-500 dark:text-zinc-400" th:text="#{report.breakdown.to}">To</label>
           <input type="date" id="to" name="to"
                  th:value="${#temporals.format(to, 'yyyy-MM-dd')}"
                  class="border border-gray-300 dark:border-zinc-600 rounded px-2 py-1 text-sm dark:bg-zinc-800"
-                 onclick="document.getElementById('preset-custom').checked=true"/>
+                 onchange="document.getElementById('preset-custom').checked=true"/>
         </div>
         <button type="submit" class="button-secondary text-sm" th:text="#{report.breakdown.apply}">Apply</button>
       </div>
