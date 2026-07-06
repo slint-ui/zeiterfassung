@@ -142,12 +142,25 @@
                 </div>
                 <span class="tabular-nums text-sm text-gray-500 dark:text-zinc-400 ml-4 shrink-0" th:text="${project.hours()}"></span>
               </summary>
-              <!-- Per-user rows (visible when expanded) -->
-              <div th:each="contrib : ${project.byUser()}"
-                   class="flex items-center justify-between px-4 py-1.5 bg-gray-50 dark:bg-zinc-800/40 border-t border-gray-100 dark:border-zinc-800/60">
-                <span class="text-xs text-gray-500 dark:text-zinc-400 pl-24 truncate" th:text="${contrib.userName()}"></span>
-                <span class="tabular-nums text-xs text-gray-400 dark:text-zinc-500 ml-4 shrink-0" th:text="${contrib.hours()}"></span>
-              </div>
+              <!-- Per-user rows — each expandable to daily breakdown -->
+              <details th:each="contrib : ${project.byUser()}"
+                       class="border-t border-gray-100 dark:border-zinc-800/60 group/user">
+                <summary class="flex items-center justify-between px-4 py-1.5 bg-gray-50 dark:bg-zinc-800/40 cursor-pointer list-none hover:bg-gray-100 dark:hover:bg-zinc-700/40">
+                  <span class="text-xs text-gray-500 dark:text-zinc-400 pl-24 truncate" th:text="${contrib.userName()}"></span>
+                  <div class="flex items-center gap-2 ml-4 shrink-0">
+                    <span th:if="${#lists.size(contrib.byDay()) > 1}"
+                          class="text-xs text-gray-400 dark:text-zinc-600 group-open/user:hidden"
+                          th:text="|${#lists.size(contrib.byDay())}d|"></span>
+                    <span class="tabular-nums text-xs text-gray-400 dark:text-zinc-500" th:text="${contrib.hours()}"></span>
+                  </div>
+                </summary>
+                <!-- Per-day rows -->
+                <div th:each="day : ${contrib.byDay()}"
+                     class="flex items-center justify-between px-4 py-1 bg-white dark:bg-zinc-900/60 border-t border-gray-100 dark:border-zinc-800/40">
+                  <span class="text-xs text-gray-400 dark:text-zinc-600 pl-32" th:text="${day.date()}"></span>
+                  <span class="tabular-nums text-xs text-gray-400 dark:text-zinc-500 ml-4 shrink-0" th:text="${day.hours()}"></span>
+                </div>
+              </details>
             </details>
           </div>
         </div>
