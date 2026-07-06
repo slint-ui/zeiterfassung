@@ -10,6 +10,7 @@ import de.focusshift.zeiterfassung.search.HasUserSearch;
 import de.focusshift.zeiterfassung.search.UserSearchViewHelper;
 import de.focusshift.zeiterfassung.security.CurrentUser;
 import de.focusshift.zeiterfassung.security.oidc.CurrentOidcUser;
+import de.focusshift.zeiterfassung.tenancy.tenant.TenantContextHolder;
 import de.focusshift.zeiterfassung.timeclock.HasTimeClock;
 import de.focusshift.zeiterfassung.usermanagement.User;
 import de.focusshift.zeiterfassung.usermanagement.UserLocalId;
@@ -24,13 +25,14 @@ import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-
-import static java.util.stream.Collectors.toMap;
+import java.util.stream.Collectors;
 
 import static de.focusshift.zeiterfassung.search.UserSearchViewHelper.USER_SEARCH_QUERY_PARAM;
 import static de.focusshift.zeiterfassung.web.HotwiredTurboConstants.TURBO_FRAME_HEADER;
+import static java.util.stream.Collectors.toMap;
 
 @Controller
 @RequestMapping("/report/breakdown")
@@ -55,17 +57,20 @@ class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
     private final ReportPermissionService reportPermissionService;
     private final ReportViewHelper reportViewHelper;
     private final UserSearchViewHelper userSearchViewHelper;
+    private final TenantContextHolder tenantContextHolder;
     private final Clock clock;
 
     BreakdownController(BreakdownService breakdownService,
                         ReportPermissionService reportPermissionService,
                         ReportViewHelper reportViewHelper,
                         UserSearchViewHelper userSearchViewHelper,
+                        TenantContextHolder tenantContextHolder,
                         Clock clock) {
         this.breakdownService = breakdownService;
         this.reportPermissionService = reportPermissionService;
         this.reportViewHelper = reportViewHelper;
         this.userSearchViewHelper = userSearchViewHelper;
+        this.tenantContextHolder = tenantContextHolder;
         this.clock = clock;
     }
 
@@ -79,55 +84,15 @@ class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
         Model model, @CurrentUser CurrentOidcUser currentUser
     ) {
         final LocalDate today = LocalDate.now(clock);
-
-        final LocalDate rangeFrom;
-        final LocalDate rangeToInclusive;
-
-        switch (preset) {
-            case "week" -> {
-                rangeFrom = today.with(DayOfWeek.MONDAY);
-                rangeToInclusive = rangeFrom.plusDays(6);
-            }
-            case "last-week" -> {
-                rangeFrom = today.with(DayOfWeek.MONDAY).minusWeeks(1);
-                rangeToInclusive = rangeFrom.plusDays(6);
-            }
-            case "last-month" -> {
-                final LocalDate firstOfLastMonth = today.minusMonths(1).withDayOfMonth(1);
-                rangeFrom = firstOfLastMonth;
-                rangeToInclusive = firstOfLastMonth.withDayOfMonth(firstOfLastMonth.lengthOfMonth());
-            }
-            case "last-30" -> {
-                rangeFrom = today.minusDays(29);
-                rangeToInclusive = today;
-            }
-            case "custom" -> {
-                rangeFrom = from != null ? from : today.withDayOfMonth(1);
-                rangeToInclusive = to != null ? to : today;
-            }
-            default -> {
-                rangeFrom = today.withDayOfMonth(1);
-                rangeToInclusive = today.withDayOfMonth(today.lengthOfMonth());
-            }
-        }
+        final LocalDate[] range = resolveDateRange(preset, from, to, today);
+        final LocalDate rangeFrom = range[0];
+        final LocalDate rangeToInclusive = range[1];
 
         final boolean allUsersSelected = allUsersSelectedParam != null;
         final List<User> allUsers = reportPermissionService.findAllPermittedUsersForCurrentUser();
-        final List<UserLocalId> allPermittedIds = allUsers.stream()
-            .map(User::userLocalId).toList();
+        final List<UserLocalId> selectedIds = resolveSelectedIds(allUsers, userLocalIdValues, allUsersSelected);
+        final Map<UserLocalId, String> userNames = allUsers.stream().collect(toMap(User::userLocalId, User::fullName));
 
-        final List<UserLocalId> selectedIds;
-        if (allUsersSelected || userLocalIdValues == null || userLocalIdValues.isEmpty()) {
-            selectedIds = allPermittedIds;
-        } else {
-            selectedIds = userLocalIdValues.stream()
-                .map(UserLocalId::new)
-                .filter(allPermittedIds::contains)
-                .toList();
-        }
-
-        final Map<UserLocalId, String> userNames = allUsers.stream()
-            .collect(toMap(User::userLocalId, User::fullName));
         final BreakdownResult result = breakdownService.breakdown(rangeFrom, rangeToInclusive.plusDays(1), selectedIds, userNames);
 
         model.addAttribute("breakdown", toDto(result));
@@ -142,6 +107,7 @@ class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
             : "/report/breakdown?preset=" + preset;
         reportViewHelper.addUserFilterModelAttributes(model, allUsersSelected, allUsers, selectedIds, baseUrl);
 
+        model.addAttribute("printUrl", buildPrintUrl(preset, rangeFrom, rangeToInclusive, userLocalIdValues, allUsersSelected));
 
         // Tab state
         model.addAttribute("weekAriaCurrent", "false");
@@ -157,12 +123,107 @@ class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
         return new ModelAndView("reports/user-report");
     }
 
+    @GetMapping("/print")
+    ModelAndView print(
+        @RequestParam(required = false, defaultValue = "month") String preset,
+        @RequestParam(required = false) LocalDate from,
+        @RequestParam(required = false) LocalDate to,
+        @RequestParam(value = "user", required = false) List<Long> userLocalIdValues,
+        @RequestParam(value = "everyone", required = false) String allUsersSelectedParam,
+        @RequestParam(value = "showUsers", required = false, defaultValue = "false") boolean showUsers,
+        @RequestParam(value = "showActivity", required = false, defaultValue = "true") boolean showActivity,
+        Model model, @CurrentUser CurrentOidcUser currentUser
+    ) {
+        final LocalDate today = LocalDate.now(clock);
+        final LocalDate[] range = resolveDateRange(preset, from, to, today);
+        final LocalDate rangeFrom = range[0];
+        final LocalDate rangeToInclusive = range[1];
+
+        final boolean allUsersSelected = allUsersSelectedParam != null;
+        final List<User> allUsers = reportPermissionService.findAllPermittedUsersForCurrentUser();
+        final List<UserLocalId> selectedIds = resolveSelectedIds(allUsers, userLocalIdValues, allUsersSelected);
+        final Map<UserLocalId, String> userNames = allUsers.stream().collect(toMap(User::userLocalId, User::fullName));
+
+        final BreakdownResult result = breakdownService.breakdown(rangeFrom, rangeToInclusive.plusDays(1), selectedIds, userNames);
+
+        final String companyName = tenantContextHolder.getCurrentTenantId()
+            .map(tid -> formatTenantId(tid.tenantId()))
+            .orElse("Time Report");
+
+        model.addAttribute("breakdown", toDto(result));
+        model.addAttribute("from", rangeFrom);
+        model.addAttribute("to", rangeToInclusive);
+        model.addAttribute("companyName", companyName);
+        model.addAttribute("showUsers", showUsers);
+        model.addAttribute("showActivity", showActivity);
+
+        final String baseUrl = buildPrintUrl(preset, rangeFrom, rangeToInclusive, userLocalIdValues, allUsersSelected);
+        model.addAttribute("toggleUsersUrl", baseUrl + "&showUsers=" + !showUsers + "&showActivity=" + showActivity);
+        model.addAttribute("toggleActivityUrl", baseUrl + "&showUsers=" + showUsers + "&showActivity=" + !showActivity);
+
+        return new ModelAndView("reports/breakdown-print");
+    }
+
     @GetMapping(params = USER_SEARCH_QUERY_PARAM, headers = TURBO_FRAME_HEADER)
     ModelAndView userSearchFragment(@RequestParam(USER_SEARCH_QUERY_PARAM) String query,
                                     @CurrentUser CurrentOidcUser currentUser, Model model) {
         return userSearchViewHelper.getSuggestionFragment(query, currentUser, model,
             suggestion -> "/report/breakdown?user=%s".formatted(suggestion.userLocalId().value())
         );
+    }
+
+    private LocalDate[] resolveDateRange(String preset, LocalDate from, LocalDate to, LocalDate today) {
+        return switch (preset) {
+            case "week" -> new LocalDate[]{today.with(DayOfWeek.MONDAY), today.with(DayOfWeek.MONDAY).plusDays(6)};
+            case "last-week" -> {
+                final LocalDate monday = today.with(DayOfWeek.MONDAY).minusWeeks(1);
+                yield new LocalDate[]{monday, monday.plusDays(6)};
+            }
+            case "last-month" -> {
+                final LocalDate first = today.minusMonths(1).withDayOfMonth(1);
+                yield new LocalDate[]{first, first.withDayOfMonth(first.lengthOfMonth())};
+            }
+            case "last-30" -> new LocalDate[]{today.minusDays(29), today};
+            case "custom" -> new LocalDate[]{
+                from != null ? from : today.withDayOfMonth(1),
+                to != null ? to : today
+            };
+            default -> new LocalDate[]{today.withDayOfMonth(1), today.withDayOfMonth(today.lengthOfMonth())};
+        };
+    }
+
+    private List<UserLocalId> resolveSelectedIds(List<User> allUsers, List<Long> userLocalIdValues, boolean allUsersSelected) {
+        final List<UserLocalId> allPermittedIds = allUsers.stream().map(User::userLocalId).toList();
+        if (allUsersSelected || userLocalIdValues == null || userLocalIdValues.isEmpty()) {
+            return allPermittedIds;
+        }
+        return userLocalIdValues.stream()
+            .map(UserLocalId::new)
+            .filter(allPermittedIds::contains)
+            .toList();
+    }
+
+    private String buildPrintUrl(String preset, LocalDate rangeFrom, LocalDate rangeToInclusive,
+                                 List<Long> userLocalIdValues, boolean allUsersSelected) {
+        final StringBuilder sb = new StringBuilder("/report/breakdown/print?preset=");
+        sb.append(preset);
+        if ("custom".equals(preset)) {
+            sb.append("&from=").append(rangeFrom).append("&to=").append(rangeToInclusive);
+        }
+        if (allUsersSelected) {
+            sb.append("&everyone=");
+        } else if (userLocalIdValues != null) {
+            for (Long id : userLocalIdValues) {
+                sb.append("&user=").append(id);
+            }
+        }
+        return sb.toString();
+    }
+
+    private static String formatTenantId(String tenantId) {
+        return Arrays.stream(tenantId.split("[-_]"))
+            .map(w -> w.isEmpty() ? w : Character.toUpperCase(w.charAt(0)) + w.substring(1))
+            .collect(Collectors.joining(" "));
     }
 
     private BreakdownDto toDto(BreakdownResult result) {
