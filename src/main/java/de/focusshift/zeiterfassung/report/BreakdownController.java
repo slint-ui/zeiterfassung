@@ -82,6 +82,19 @@ class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
                 rangeFrom = today.with(DayOfWeek.MONDAY);
                 rangeToInclusive = rangeFrom.plusDays(6);
             }
+            case "last-week" -> {
+                rangeFrom = today.with(DayOfWeek.MONDAY).minusWeeks(1);
+                rangeToInclusive = rangeFrom.plusDays(6);
+            }
+            case "last-month" -> {
+                final LocalDate firstOfLastMonth = today.minusMonths(1).withDayOfMonth(1);
+                rangeFrom = firstOfLastMonth;
+                rangeToInclusive = firstOfLastMonth.withDayOfMonth(firstOfLastMonth.lengthOfMonth());
+            }
+            case "last-30" -> {
+                rangeFrom = today.minusDays(29);
+                rangeToInclusive = today;
+            }
             case "custom" -> {
                 rangeFrom = from != null ? from : today.withDayOfMonth(1);
                 rangeToInclusive = to != null ? to : today;
@@ -116,10 +129,11 @@ class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
         model.addAttribute("selectedUserIds", userLocalIdValues == null ? List.of() : userLocalIdValues);
         model.addAttribute("canViewAllUsers", reportPermissionService.currentUserHasPermissionForAllUsers());
 
-        final String filterUrl = "custom".equals(preset)
+        final String baseUrl = "custom".equals(preset)
             ? "/report/breakdown?preset=custom&from=" + rangeFrom + "&to=" + rangeToInclusive
             : "/report/breakdown?preset=" + preset;
-        reportViewHelper.addUserFilterModelAttributes(model, allUsersSelected, allUsers, selectedIds, filterUrl);
+        reportViewHelper.addUserFilterModelAttributes(model, allUsersSelected, allUsers, selectedIds, baseUrl);
+
 
         // Tab state
         model.addAttribute("weekAriaCurrent", "false");
@@ -127,7 +141,7 @@ class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
         model.addAttribute("breakdownAriaCurrent", "location");
 
         // Override the chart+entries section with breakdown content
-        model.addAttribute("chartNavigationFragment", "reports/breakdown::empty");
+        model.addAttribute("chartNavigationFragment", "reports/breakdown::chart-navigation");
         model.addAttribute("chartFragment", "reports/breakdown::empty");
         model.addAttribute("entriesFragment", "reports/breakdown::empty");
         model.addAttribute("overrideContentFragment", "reports/breakdown::content");
