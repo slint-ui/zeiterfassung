@@ -16,6 +16,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -23,7 +24,9 @@ import static java.util.stream.Collectors.toMap;
 @Service
 class BreakdownService {
 
-    record UserContribution(String userName, Duration duration) {}
+    record DailyEntry(LocalDate date, Duration duration) {}
+
+    record UserContribution(String userName, Duration duration, List<DailyEntry> byDay) {}
 
     record ProjectBreakdown(String projectName, Duration duration, List<UserContribution> byUser) {}
 
@@ -73,8 +76,8 @@ class BreakdownService {
         final Map<Long, ActivityType> activityTypeById = activityTypeService.findAll().stream()
             .collect(toMap(at -> at.id().value(), identity()));
 
-        // customer → project → user → duration
-        final Map<String, Map<String, Map<UserLocalId, Duration>>> byCustomerProject = new LinkedHashMap<>();
+        // customer → project → user → day → duration
+        final Map<String, Map<String, Map<UserLocalId, Map<LocalDate, Duration>>>> byCustomerProject = new LinkedHashMap<>();
         final Map<String, Duration> byActivity = new LinkedHashMap<>();
         Duration total = Duration.ZERO;
 
@@ -93,9 +96,11 @@ class BreakdownService {
                 }
             }
             final UserLocalId uid = entry.userIdComposite().localId();
+            final LocalDate day = entry.start().toLocalDate();
             byCustomerProject.computeIfAbsent(customerName, k -> new LinkedHashMap<>())
                 .computeIfAbsent(projectName, k -> new LinkedHashMap<>())
-                .merge(uid, d, Duration::plus);
+                .computeIfAbsent(uid, k -> new TreeMap<>())
+                .merge(day, d, Duration::plus);
 
             // Activity type
             String activityName = NO_ACTIVITY;
@@ -110,14 +115,21 @@ class BreakdownService {
             .map(e -> {
                 final List<ProjectBreakdown> projects = e.getValue().entrySet().stream()
                     .map(pe -> {
-                        final Duration projTotal = pe.getValue().values().stream().reduce(Duration.ZERO, Duration::plus);
                         final List<UserContribution> byUser = pe.getValue().entrySet().stream()
-                            .sorted(Map.Entry.<UserLocalId, Duration>comparingByValue().reversed())
-                            .map(ue -> new UserContribution(
-                                userNames.getOrDefault(ue.getKey(), "Unknown"),
-                                ue.getValue()
-                            ))
+                            .map(ue -> {
+                                final Duration userTotal = ue.getValue().values().stream().reduce(Duration.ZERO, Duration::plus);
+                                final List<DailyEntry> byDay = ue.getValue().entrySet().stream()
+                                    .map(de -> new DailyEntry(de.getKey(), de.getValue()))
+                                    .toList();
+                                return new UserContribution(
+                                    userNames.getOrDefault(ue.getKey(), "Unknown"),
+                                    userTotal,
+                                    byDay
+                                );
+                            })
+                            .sorted(Comparator.comparing(UserContribution::duration).reversed())
                             .toList();
+                        final Duration projTotal = byUser.stream().map(UserContribution::duration).reduce(Duration.ZERO, Duration::plus);
                         return new ProjectBreakdown(pe.getKey(), projTotal, byUser);
                     })
                     .sorted(Comparator.comparing(ProjectBreakdown::duration).reversed())

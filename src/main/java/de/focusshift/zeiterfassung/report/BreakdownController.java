@@ -4,6 +4,7 @@ import de.focus_shift.launchpad.api.HasLaunchpad;
 import de.focusshift.zeiterfassung.report.BreakdownService.ActivityTypeBreakdown;
 import de.focusshift.zeiterfassung.report.BreakdownService.BreakdownResult;
 import de.focusshift.zeiterfassung.report.BreakdownService.CustomerBreakdown;
+import de.focusshift.zeiterfassung.report.BreakdownService.DailyEntry;
 import de.focusshift.zeiterfassung.report.BreakdownService.ProjectBreakdown;
 import de.focusshift.zeiterfassung.report.BreakdownService.UserContribution;
 import de.focusshift.zeiterfassung.search.HasUserSearch;
@@ -25,6 +26,8 @@ import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +41,9 @@ import static java.util.stream.Collectors.toMap;
 @RequestMapping("/report/breakdown")
 class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
 
-    record UserContributionDto(String userName, String hours) {}
+    record DailyEntryDto(String date, String hours) {}
+
+    record UserContributionDto(String userName, String hours, List<DailyEntryDto> byDay) {}
 
     record ProjectBreakdownDto(String projectName, String hours, int percent, List<UserContributionDto> byUser) {}
 
@@ -245,12 +250,19 @@ class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
         final Duration total = result.total();
         final String totalHours = formatDuration(total);
 
+        final DateTimeFormatter dayFmt = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH);
+
         final List<CustomerBreakdownDto> customers = result.byCustomer().stream()
             .map(c -> {
                 final List<ProjectBreakdownDto> projects = c.projects().stream()
                     .map(p -> {
                         final List<UserContributionDto> byUser = p.byUser().stream()
-                            .map(u -> new UserContributionDto(u.userName(), formatDuration(u.duration())))
+                            .map(u -> {
+                                final List<DailyEntryDto> byDay = u.byDay().stream()
+                                    .map(d -> new DailyEntryDto(d.date().format(dayFmt), formatDuration(d.duration())))
+                                    .toList();
+                                return new UserContributionDto(u.userName(), formatDuration(u.duration()), byDay);
+                            })
                             .toList();
                         return new ProjectBreakdownDto(p.projectName(), formatDuration(p.duration()), percent(p.duration(), total), byUser);
                     })
