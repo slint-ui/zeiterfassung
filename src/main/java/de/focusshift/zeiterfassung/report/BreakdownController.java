@@ -127,7 +127,7 @@ class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
         model.addAttribute("breakdownAriaCurrent", "location");
 
         // Override the chart+entries section with breakdown content
-        model.addAttribute("chartNavigationFragment", "reports/breakdown::empty");
+        model.addAttribute("chartNavigationFragment", "reports/breakdown::chart-navigation");
         model.addAttribute("chartFragment", "reports/breakdown::empty");
         model.addAttribute("entriesFragment", "reports/breakdown::empty");
         model.addAttribute("overrideContentFragment", "reports/breakdown::content");

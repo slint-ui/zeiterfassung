@@ -5,13 +5,13 @@
 <!-- Empty fragment used as placeholder for unused chart/navigation slots -->
 <th:block th:fragment="empty"></th:block>
 
+<!-- Users picker in the report-actions bar (same slot as week/month nav) -->
+<div th:fragment="chart-navigation" class="report-actions">
+  <form th:replace="~{reports/_user-select::form}" />
+</div>
+
 <!-- Main breakdown content, injected into user-report.html via overrideContentFragment -->
 <th:block th:fragment="content">
-
-  <!-- Users picker (admins only) -->
-  <div class="mb-4">
-    <form th:replace="~{reports/_user-select::form}" />
-  </div>
 
   <!-- Date range selector -->
   <form th:action="@{/report/breakdown}" method="get" class="mb-8">
