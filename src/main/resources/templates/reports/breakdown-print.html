@@ -1,0 +1,184 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title th:text="|Time Report – ${companyName}|">Time Report</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; font-size: 14px; color: #111; background: #fff; }
+
+    .screen-only { }
+    @media print {
+      .screen-only { display: none !important; }
+      body { font-size: 12px; }
+      .page { padding: 0; }
+    }
+
+    /* Screen toolbar */
+    .toolbar {
+      position: sticky; top: 0; z-index: 10;
+      background: #f8f8f8; border-bottom: 1px solid #e0e0e0;
+      padding: 10px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    .toolbar-spacer { flex: 1; }
+    .btn-print {
+      padding: 6px 18px; background: #111; color: #fff; border: none;
+      border-radius: 6px; font-size: 13px; cursor: pointer; font-family: inherit;
+    }
+    .btn-print:hover { background: #333; }
+    .toggle-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; color: #444; text-decoration: none;
+      padding: 5px 12px; border: 1px solid #ccc; border-radius: 6px; background: #fff;
+    }
+    .toggle-link.on { background: #111; color: #fff; border-color: #111; }
+    .toggle-label { font-size: 12px; color: #666; }
+
+    /* Report content */
+    .page { max-width: 900px; margin: 0 auto; padding: 40px 24px; }
+
+    .report-header { margin-bottom: 32px; border-bottom: 2px solid #111; padding-bottom: 16px; }
+    .report-header h1 { font-size: 22px; font-weight: 600; }
+    .report-header .meta { margin-top: 6px; font-size: 13px; color: #555; display: flex; gap: 24px; flex-wrap: wrap; }
+
+    .report-total { font-size: 13px; color: #555; margin-bottom: 20px; }
+    .report-total b { color: #111; }
+
+    .report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+    @media (max-width: 680px), print and (max-width: 150mm) {
+      .report-grid { grid-template-columns: 1fr; }
+    }
+
+    .section-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #555; margin-bottom: 12px; }
+
+    /* Customer card */
+    .customer-block { margin-bottom: 16px; break-inside: avoid; }
+    .customer-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 7px 10px; background: #f2f2f2; border-radius: 4px 4px 0 0;
+      font-weight: 600; font-size: 13px;
+    }
+    .bar-outer { height: 3px; background: #e0e0e0; }
+    .bar-inner { height: 3px; background: #2563eb; }
+    .project-row {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding: 5px 10px; border-left: 1px solid #e0e0e0; border-right: 1px solid #e0e0e0;
+      border-bottom: 1px solid #f0f0f0; font-size: 13px;
+    }
+    .project-name { flex: 1; color: #333; padding-right: 12px; }
+    .project-hours { font-variant-numeric: tabular-nums; color: #555; white-space: nowrap; }
+    .user-row {
+      display: flex; justify-content: space-between;
+      padding: 3px 10px 3px 28px; background: #fafafa;
+      border-left: 1px solid #e0e0e0; border-right: 1px solid #e0e0e0;
+      border-bottom: 1px solid #f5f5f5; font-size: 12px; color: #666;
+    }
+    .user-row .user-hours { font-variant-numeric: tabular-nums; color: #888; }
+    .project-row:last-of-type, .user-row:last-of-type { border-bottom: 1px solid #e0e0e0; border-radius: 0 0 4px 4px; }
+
+    /* Activity card */
+    .activity-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 10px; border-bottom: 1px solid #f0f0f0; font-size: 13px;
+    }
+    .activity-row:first-child { border-top: 1px solid #e0e0e0; }
+    .activity-name { flex: 1; color: #333; }
+    .activity-hours { font-variant-numeric: tabular-nums; color: #555; }
+    .activity-bar { height: 3px; background: #e0e0e0; margin: 0 10px; }
+    .activity-bar-inner { height: 3px; background: #10b981; }
+
+    .empty { color: #888; font-style: italic; font-size: 13px; margin-top: 8px; }
+
+    .single-col { grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+
+<!-- Toolbar (screen only) -->
+<div class="toolbar screen-only">
+  <span class="toggle-label">Show:</span>
+  <a th:href="${toggleUsersUrl}"
+     th:classappend="${showUsers} ? ' on' : ''"
+     class="toggle-link">
+    <span th:text="${showUsers} ? '✓ ' : ''"></span>Individual users
+  </a>
+  <a th:href="${toggleActivityUrl}"
+     th:classappend="${showActivity} ? ' on' : ''"
+     class="toggle-link">
+    <span th:text="${showActivity} ? '✓ ' : ''"></span>Activity types
+  </a>
+  <div class="toolbar-spacer"></div>
+  <button class="btn-print" onclick="window.print()">Print / Save as PDF</button>
+</div>
+
+<!-- Report -->
+<div class="page">
+
+  <div class="report-header">
+    <h1 th:text="${companyName}">Company Name</h1>
+    <div class="meta">
+      <span>Time Report</span>
+      <span th:text="|${#temporals.format(from, 'dd MMM yyyy')} – ${#temporals.format(to, 'dd MMM yyyy')}|"></span>
+    </div>
+  </div>
+
+  <p th:if="${!breakdown.hasData()}" class="empty">No time entries recorded for this period.</p>
+
+  <th:block th:if="${breakdown.hasData()}">
+
+    <p class="report-total">
+      Total hours: <b th:text="${breakdown.totalHours()}"></b>
+    </p>
+
+    <div th:class="${showActivity} ? 'report-grid' : ''">
+
+      <!-- By Customer & Project -->
+      <section>
+        <p class="section-title">By customer &amp; project</p>
+
+        <div th:each="customer : ${breakdown.byCustomer()}" class="customer-block">
+          <div class="customer-row">
+            <span th:text="${customer.customerName()}"></span>
+            <span th:text="${customer.hours()}"></span>
+          </div>
+          <div class="bar-outer"><div class="bar-inner" th:style="|width:${customer.percent()}%|"></div></div>
+
+          <th:block th:each="project, iterStat : ${customer.projects()}">
+            <div class="project-row" th:classappend="${iterStat.last and not showUsers} ? 'last-row' : ''">
+              <span class="project-name" th:text="${project.projectName()}"></span>
+              <span class="project-hours" th:text="${project.hours()}"></span>
+            </div>
+            <th:block th:if="${showUsers}">
+              <div th:each="contrib, cs : ${project.byUser()}"
+                   class="user-row"
+                   th:classappend="${cs.last and iterStat.last} ? 'last-row' : ''">
+                <span th:text="${contrib.userName()}"></span>
+                <span class="user-hours" th:text="${contrib.hours()}"></span>
+              </div>
+            </th:block>
+          </th:block>
+        </div>
+      </section>
+
+      <!-- By Activity Type (optional) -->
+      <section th:if="${showActivity}">
+        <p class="section-title">By activity type</p>
+        <div>
+          <div th:each="activity : ${breakdown.byActivityType()}">
+            <div class="activity-row">
+              <span class="activity-name" th:text="${activity.name()}"></span>
+              <span class="activity-hours" th:text="${activity.hours()}"></span>
+            </div>
+            <div class="activity-bar"><div class="activity-bar-inner" th:style="|width:${activity.percent()}%|"></div></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </th:block>
+
+</div>
+
+</body>
+</html>
