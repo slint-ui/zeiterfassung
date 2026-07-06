@@ -49,7 +49,7 @@
           >
         </a>
       </nav>
-      <form th:replace="~{reports/_user-select::form}" />
+      <form th:replace="~{reports/_user-select::form(~{})}" />
       <a
         href="#"
         th:href="${userReportCsvDownloadUrl}"
