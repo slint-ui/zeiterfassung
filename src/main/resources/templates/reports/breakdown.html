@@ -109,17 +109,28 @@
                    th:style="|width: ${customer.percent()}%|"></div>
             </div>
             <!-- Projects -->
-            <div th:each="project : ${customer.projects()}"
-                 class="flex items-center justify-between px-4 py-2 border-t border-gray-100 dark:border-zinc-800">
-              <div class="flex items-center gap-3 flex-1 min-w-0">
-                <div class="w-20 h-1.5 rounded-full bg-gray-100 dark:bg-zinc-700 shrink-0">
-                  <div class="h-1.5 rounded-full bg-blue-300 dark:bg-sky-700"
-                       th:style="|width: ${project.percent()}%|"></div>
+            <details th:each="project : ${customer.projects()}"
+                     class="border-t border-gray-100 dark:border-zinc-800 group">
+              <summary class="flex items-center justify-between px-4 py-2 cursor-pointer list-none hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                  <div class="w-20 h-1.5 rounded-full bg-gray-100 dark:bg-zinc-700 shrink-0">
+                    <div class="h-1.5 rounded-full bg-blue-300 dark:bg-sky-700"
+                         th:style="|width: ${project.percent()}%|"></div>
+                  </div>
+                  <span class="text-sm text-gray-700 dark:text-zinc-300 truncate" th:text="${project.projectName()}"></span>
+                  <span th:if="${#lists.size(project.byUser()) > 1}"
+                        class="text-xs text-gray-400 dark:text-zinc-500 shrink-0 group-open:hidden"
+                        th:text="|${#lists.size(project.byUser())} people|"></span>
                 </div>
-                <span class="text-sm text-gray-700 dark:text-zinc-300 truncate" th:text="${project.projectName()}"></span>
+                <span class="tabular-nums text-sm text-gray-500 dark:text-zinc-400 ml-4 shrink-0" th:text="${project.hours()}"></span>
+              </summary>
+              <!-- Per-user rows (visible when expanded) -->
+              <div th:each="contrib : ${project.byUser()}"
+                   class="flex items-center justify-between px-4 py-1.5 bg-gray-50 dark:bg-zinc-800/40 border-t border-gray-100 dark:border-zinc-800/60">
+                <span class="text-xs text-gray-500 dark:text-zinc-400 pl-24 truncate" th:text="${contrib.userName()}"></span>
+                <span class="tabular-nums text-xs text-gray-400 dark:text-zinc-500 ml-4 shrink-0" th:text="${contrib.hours()}"></span>
               </div>
-              <span class="tabular-nums text-sm text-gray-500 dark:text-zinc-400 ml-4 shrink-0" th:text="${project.hours()}"></span>
-            </div>
+            </details>
           </div>
         </div>
       </section>

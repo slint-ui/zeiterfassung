@@ -5,6 +5,7 @@ import de.focusshift.zeiterfassung.report.BreakdownService.ActivityTypeBreakdown
 import de.focusshift.zeiterfassung.report.BreakdownService.BreakdownResult;
 import de.focusshift.zeiterfassung.report.BreakdownService.CustomerBreakdown;
 import de.focusshift.zeiterfassung.report.BreakdownService.ProjectBreakdown;
+import de.focusshift.zeiterfassung.report.BreakdownService.UserContribution;
 import de.focusshift.zeiterfassung.search.HasUserSearch;
 import de.focusshift.zeiterfassung.search.UserSearchViewHelper;
 import de.focusshift.zeiterfassung.security.CurrentUser;
@@ -24,6 +25,9 @@ import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+
+import static java.util.stream.Collectors.toMap;
 
 import static de.focusshift.zeiterfassung.search.UserSearchViewHelper.USER_SEARCH_QUERY_PARAM;
 import static de.focusshift.zeiterfassung.web.HotwiredTurboConstants.TURBO_FRAME_HEADER;
@@ -32,7 +36,9 @@ import static de.focusshift.zeiterfassung.web.HotwiredTurboConstants.TURBO_FRAME
 @RequestMapping("/report/breakdown")
 class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
 
-    record ProjectBreakdownDto(String projectName, String hours, int percent) {}
+    record UserContributionDto(String userName, String hours) {}
+
+    record ProjectBreakdownDto(String projectName, String hours, int percent, List<UserContributionDto> byUser) {}
 
     record CustomerBreakdownDto(String customerName, String hours, int percent, List<ProjectBreakdownDto> projects) {}
 
@@ -120,7 +126,9 @@ class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
                 .toList();
         }
 
-        final BreakdownResult result = breakdownService.breakdown(rangeFrom, rangeToInclusive.plusDays(1), selectedIds);
+        final Map<UserLocalId, String> userNames = allUsers.stream()
+            .collect(toMap(User::userLocalId, User::fullName));
+        final BreakdownResult result = breakdownService.breakdown(rangeFrom, rangeToInclusive.plusDays(1), selectedIds, userNames);
 
         model.addAttribute("breakdown", toDto(result));
         model.addAttribute("from", rangeFrom);
@@ -164,7 +172,12 @@ class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
         final List<CustomerBreakdownDto> customers = result.byCustomer().stream()
             .map(c -> {
                 final List<ProjectBreakdownDto> projects = c.projects().stream()
-                    .map(p -> new ProjectBreakdownDto(p.projectName(), formatDuration(p.duration()), percent(p.duration(), total)))
+                    .map(p -> {
+                        final List<UserContributionDto> byUser = p.byUser().stream()
+                            .map(u -> new UserContributionDto(u.userName(), formatDuration(u.duration())))
+                            .toList();
+                        return new ProjectBreakdownDto(p.projectName(), formatDuration(p.duration()), percent(p.duration(), total), byUser);
+                    })
                     .toList();
                 return new CustomerBreakdownDto(c.customerName(), formatDuration(c.duration()), percent(c.duration(), total), projects);
             })
