@@ -13,19 +13,43 @@
 <!-- Main breakdown content, injected into user-report.html via overrideContentFragment -->
 <th:block th:fragment="content">
 
-  <!-- Date range selector -->
+  <!-- Date range selector — hidden inputs carry the current user selection through period changes -->
   <form th:action="@{/report/breakdown}" method="get" class="mb-8">
+    <th:block th:if="${allUsersSelected}">
+      <input type="hidden" name="everyone" value=""/>
+    </th:block>
+    <th:block th:if="${not allUsersSelected}">
+      <th:block th:each="uid : ${selectedUserIds}">
+        <input type="hidden" name="user" th:value="${uid}"/>
+      </th:block>
+    </th:block>
+
     <div class="flex flex-wrap items-end gap-4">
-      <div class="flex gap-2">
+      <div class="flex flex-wrap gap-x-4 gap-y-2">
         <label class="flex items-center gap-1.5 cursor-pointer">
           <input type="radio" name="preset" value="week"
                  th:checked="${preset == 'week'}" onchange="this.form.submit()"/>
           <span th:text="#{report.breakdown.preset.week}">This week</span>
         </label>
         <label class="flex items-center gap-1.5 cursor-pointer">
+          <input type="radio" name="preset" value="last-week"
+                 th:checked="${preset == 'last-week'}" onchange="this.form.submit()"/>
+          <span th:text="#{report.breakdown.preset.last-week}">Last week</span>
+        </label>
+        <label class="flex items-center gap-1.5 cursor-pointer">
           <input type="radio" name="preset" value="month"
                  th:checked="${preset == 'month'}" onchange="this.form.submit()"/>
           <span th:text="#{report.breakdown.preset.month}">This month</span>
+        </label>
+        <label class="flex items-center gap-1.5 cursor-pointer">
+          <input type="radio" name="preset" value="last-month"
+                 th:checked="${preset == 'last-month'}" onchange="this.form.submit()"/>
+          <span th:text="#{report.breakdown.preset.last-month}">Last month</span>
+        </label>
+        <label class="flex items-center gap-1.5 cursor-pointer">
+          <input type="radio" name="preset" value="last-30"
+                 th:checked="${preset == 'last-30'}" onchange="this.form.submit()"/>
+          <span th:text="#{report.breakdown.preset.last-30}">Last 30 days</span>
         </label>
         <label class="flex items-center gap-1.5 cursor-pointer">
           <input type="radio" name="preset" value="custom"
