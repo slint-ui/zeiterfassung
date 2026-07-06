@@ -10,6 +10,7 @@
   </head>
   <body>
     <form
+      th:fragment="form(extraParams)"
       th:if="${userReportFilterUrl != null}"
       th:with="personsSelected=${allUsersSelected or !#lists.isEmpty(selectedUserIds)}"
       action="#"
@@ -18,6 +19,7 @@
       class="report-actions__persons"
       th:classappend="${personsSelected ? 'report-actions__persons--persons-selected' : ''}"
     >
+      <th:block th:replace="${extraParams}"/>
       <div class="report-actions__persons-select relative">
         <a
           href="#report-user-selection"

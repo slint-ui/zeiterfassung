@@ -7,7 +7,15 @@
 
 <!-- Users picker in the report-actions bar (same slot as week/month nav) -->
 <div th:fragment="chart-navigation" class="report-actions">
-  <form th:replace="~{reports/_user-select::form}" />
+  <form th:replace="~{reports/_user-select::form(~{::breakdown-preset-params})}">
+    <th:block th:fragment="breakdown-preset-params">
+      <input type="hidden" name="preset" th:value="${preset}"/>
+      <th:block th:if="${preset == 'custom'}">
+        <input type="hidden" name="from" th:value="${#temporals.format(from, 'yyyy-MM-dd')}"/>
+        <input type="hidden" name="to" th:value="${#temporals.format(to, 'yyyy-MM-dd')}"/>
+      </th:block>
+    </th:block>
+  </form>
 </div>
 
 <!-- Main breakdown content, injected into user-report.html via overrideContentFragment -->

@@ -132,6 +132,7 @@ class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
         @RequestParam(value = "everyone", required = false) String allUsersSelectedParam,
         @RequestParam(value = "showUsers", required = false, defaultValue = "false") boolean showUsers,
         @RequestParam(value = "showActivity", required = false, defaultValue = "true") boolean showActivity,
+        @RequestParam(value = "customer", required = false) List<String> selectedCustomers,
         Model model, @CurrentUser CurrentOidcUser currentUser
     ) {
         final LocalDate today = LocalDate.now(clock);
@@ -150,16 +151,30 @@ class BreakdownController implements HasTimeClock, HasLaunchpad, HasUserSearch {
             .map(tid -> formatTenantId(tid.tenantId()))
             .orElse("Time Report");
 
-        model.addAttribute("breakdown", toDto(result));
+        final BreakdownDto fullDto = toDto(result);
+        final boolean filteringCustomers = selectedCustomers != null && !selectedCustomers.isEmpty();
+        final BreakdownDto filteredDto = filteringCustomers
+            ? new BreakdownDto(
+                fullDto.byCustomer().stream()
+                    .filter(c -> selectedCustomers.contains(c.customerName()))
+                    .toList(),
+                fullDto.byActivityType(),
+                fullDto.totalHours(),
+                fullDto.hasData()
+              )
+            : fullDto;
+
+        model.addAttribute("breakdown", filteredDto);
+        model.addAttribute("allCustomers", fullDto.byCustomer().stream().map(CustomerBreakdownDto::customerName).toList());
+        model.addAttribute("selectedCustomers", selectedCustomers == null ? List.of() : selectedCustomers);
         model.addAttribute("from", rangeFrom);
         model.addAttribute("to", rangeToInclusive);
+        model.addAttribute("preset", preset);
+        model.addAttribute("userLocalIdValues", userLocalIdValues == null ? List.of() : userLocalIdValues);
+        model.addAttribute("allUsersSelected", allUsersSelected);
         model.addAttribute("companyName", companyName);
         model.addAttribute("showUsers", showUsers);
         model.addAttribute("showActivity", showActivity);
-
-        final String baseUrl = buildPrintUrl(preset, rangeFrom, rangeToInclusive, userLocalIdValues, allUsersSelected);
-        model.addAttribute("toggleUsersUrl", baseUrl + "&showUsers=" + !showUsers + "&showActivity=" + showActivity);
-        model.addAttribute("toggleActivityUrl", baseUrl + "&showUsers=" + showUsers + "&showActivity=" + !showActivity);
 
         return new ModelAndView("reports/breakdown-print");
     }
