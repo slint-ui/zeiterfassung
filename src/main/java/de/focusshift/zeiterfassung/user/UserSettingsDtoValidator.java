@@ -30,6 +30,11 @@ class UserSettingsDtoValidator implements Validator {
         if (locale != null && supportedLocaleDoesNotContain(locale)) {
             errors.reject("Locale is not available");
         }
+
+        final String timeFormat = userSettingsDto.timeFormat();
+        if (timeFormatIsNotValid(timeFormat)) {
+            errors.reject("Time format is not available");
+        }
     }
 
     private static boolean availableThemesDoesNotContain(String theme) {
@@ -38,5 +43,9 @@ class UserSettingsDtoValidator implements Validator {
 
     private static boolean supportedLocaleDoesNotContain(Locale locale) {
         return stream(SupportedLocale.values()).noneMatch(supportedLocale -> supportedLocale.getLocale().equals(locale));
+    }
+
+    private static boolean timeFormatIsNotValid(String timeFormat) {
+        return stream(TimeFormat.values()).noneMatch(tf -> tf.name().equals(timeFormat));
     }
 }

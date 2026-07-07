@@ -104,7 +104,7 @@ class UserSettingsServiceTest {
 
             when(userSettingsRepository.save(entityToSave)).thenReturn(entityToSave);
 
-            final UserSettings updatedUserSettings = sut.updateUserPreference(userIdComposite, LIGHT, GERMAN);
+            final UserSettings updatedUserSettings = sut.updateUserPreference(userIdComposite, LIGHT, GERMAN, TimeFormat.HOURS_24);
             assertThat(updatedUserSettings.theme()).isEqualTo(LIGHT);
             assertThat(updatedUserSettings.locale()).hasValue(GERMAN);
             assertThat(updatedUserSettings.localeBrowserSpecific()).isEmpty();
@@ -145,7 +145,7 @@ class UserSettingsServiceTest {
 
             when(userSettingsRepository.save(entityToSave)).thenReturn(entityToSave);
 
-            final UserSettings updatedUserSettings = sut.updateUserPreference(userIdComposite, LIGHT, null);
+            final UserSettings updatedUserSettings = sut.updateUserPreference(userIdComposite, LIGHT, null, TimeFormat.HOURS_24);
             assertThat(updatedUserSettings.theme()).isEqualTo(LIGHT);
             assertThat(updatedUserSettings.locale()).isEmpty();
             assertThat(updatedUserSettings.localeBrowserSpecific()).hasValue(GERMAN);
@@ -174,7 +174,7 @@ class UserSettingsServiceTest {
 
             when(userSettingsRepository.save(entityToSave)).thenReturn(entityToSave);
 
-            final UserSettings updatedUserSettings = sut.updateUserPreference(userIdComposite, LIGHT, GERMAN);
+            final UserSettings updatedUserSettings = sut.updateUserPreference(userIdComposite, LIGHT, GERMAN, TimeFormat.HOURS_24);
             assertThat(updatedUserSettings.theme()).isEqualTo(LIGHT);
 
             final ArgumentCaptor<UserSettingsEntity> entityArgumentCaptor = ArgumentCaptor.forClass(UserSettingsEntity.class);

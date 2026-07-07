@@ -65,6 +65,11 @@ public class UserSettingsEntity extends AbstractTenantAwareEntity {
     @Column(name = "reminder_days_before_lock", nullable = false)
     private int reminderDaysBeforeLock = 2;
 
+    @Column(name = "time_format", nullable = false)
+    @NotNull
+    @Enumerated(STRING)
+    private TimeFormat timeFormat = TimeFormat.HOURS_24;
+
     protected UserSettingsEntity() {
         super(null);
     }
@@ -163,6 +168,14 @@ public class UserSettingsEntity extends AbstractTenantAwareEntity {
 
     public void setReminderDaysBeforeLock(int reminderDaysBeforeLock) {
         this.reminderDaysBeforeLock = reminderDaysBeforeLock;
+    }
+
+    public TimeFormat getTimeFormat() {
+        return timeFormat == null ? TimeFormat.HOURS_24 : timeFormat;
+    }
+
+    public void setTimeFormat(TimeFormat timeFormat) {
+        this.timeFormat = timeFormat == null ? TimeFormat.HOURS_24 : timeFormat;
     }
 
     @Override

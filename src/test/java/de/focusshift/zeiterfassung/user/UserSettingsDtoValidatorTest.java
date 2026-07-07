@@ -34,23 +34,29 @@ class UserSettingsDtoValidatorTest {
 
     @Test
     void ensureThrowsErrorIfLocaleIsNotSupported() {
-        final UserSettingsDto userSettingsDto = new UserSettingsDto(Theme.SYSTEM.name(), Locale.ITALIAN);
+        final UserSettingsDto userSettingsDto = new UserSettingsDto(Theme.SYSTEM.name(), Locale.ITALIAN, TimeFormat.HOURS_24.name());
         sut.validate(userSettingsDto, errors);
         verify(errors).reject("Locale is not available");
     }
 
     @Test
     void ensureThrowsErrorIfThemeIsNotProvided() {
-        final UserSettingsDto userSettingsDto = new UserSettingsDto(null, Locale.GERMAN);
+        final UserSettingsDto userSettingsDto = new UserSettingsDto(null, Locale.GERMAN, TimeFormat.HOURS_24.name());
         sut.validate(userSettingsDto, errors);
         verify(errors).reject("Theme is not available");
     }
 
     @Test
     void ensureThrowsErrorIfThemeIsNotSupported() {
-        final UserSettingsDto userSettingsDto = new UserSettingsDto("someTheme", Locale.GERMAN);
+        final UserSettingsDto userSettingsDto = new UserSettingsDto("someTheme", Locale.GERMAN, TimeFormat.HOURS_24.name());
         sut.validate(userSettingsDto, errors);
         verify(errors).reject("Theme is not available");
     }
-}
 
+    @Test
+    void ensureThrowsErrorIfTimeFormatIsNotSupported() {
+        final UserSettingsDto userSettingsDto = new UserSettingsDto(Theme.SYSTEM.name(), Locale.GERMAN, "INVALID");
+        sut.validate(userSettingsDto, errors);
+        verify(errors).reject("Time format is not available");
+    }
+}

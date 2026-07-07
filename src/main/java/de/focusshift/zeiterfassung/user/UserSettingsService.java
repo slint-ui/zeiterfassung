@@ -37,6 +37,11 @@ public class UserSettingsService {
         return userSettingsRepository.findByTenantUserLocalId(localId).map(UserSettingsEntity::getTheme);
     }
 
+    Optional<TimeFormat> findTimeFormat(UserIdComposite userIdComposite) {
+        final Long localId = userIdComposite.localId().value();
+        return userSettingsRepository.findByTenantUserLocalId(localId).map(UserSettingsEntity::getTimeFormat);
+    }
+
     Optional<Locale> getLocale(UserIdComposite userIdComposite) {
         final Long localId = userIdComposite.localId().value();
         return userSettingsRepository.findByTenantUserLocalId(localId).map(UserSettingsEntity::getLocale);
@@ -57,11 +62,12 @@ public class UserSettingsService {
      * @param theme  the {@link Theme} for the person.
      * @return the updated {@link UserSettings}
      */
-    UserSettings updateUserPreference(UserIdComposite userIdComposite, Theme theme, @Nullable Locale locale) {
+    UserSettings updateUserPreference(UserIdComposite userIdComposite, Theme theme, @Nullable Locale locale, TimeFormat timeFormat) {
         final UserSettingsEntity entity = findOrGetDefault(userIdComposite);
         entity.setTenantUserLocalId(userIdComposite.localId().value());
         entity.setTheme(theme);
         entity.setLocale(locale);
+        entity.setTimeFormat(timeFormat);
 
         final Locale localeFromRequest = locale == null ? getRequest().map(ServletRequest::getLocale).orElse(null) : null;
         entity.setLocaleBrowserSpecific(localeFromRequest);
@@ -221,7 +227,8 @@ public class UserSettingsService {
             userSettingsEntity.isNotificationsEnabled(),
             userSettingsEntity.getGithubInstallationId(),
             userSettingsEntity.isShowStandaloneCommits(),
-            userSettingsEntity.getReminderDaysBeforeLock()
+            userSettingsEntity.getReminderDaysBeforeLock(),
+            userSettingsEntity.getTimeFormat()
         );
     }
 

@@ -64,7 +64,7 @@ class UserSettingsViewControllerTest implements ControllerTest {
 
         final UserIdComposite userIdComposite = anyUserIdComposite();
 
-        final UserSettings userSettings = new UserSettings(Theme.DARK, Locale.GERMAN, null, null, false, null, true, null, false, 2);
+        final UserSettings userSettings = new UserSettings(Theme.DARK, Locale.GERMAN, null, null, false, null, true, null, false, 2, TimeFormat.HOURS_24);
         when(userSettingsService.getUserSettings(userIdComposite)).thenReturn(userSettings);
 
         when(supportedLocaleService.getSupportedLocales()).thenReturn(Set.of(Locale.GERMAN, Locale.ENGLISH));
@@ -89,7 +89,7 @@ class UserSettingsViewControllerTest implements ControllerTest {
                     )
                 )
             ))
-            .andExpect(model().attribute("userSettings", new UserSettingsDto("DARK", Locale.GERMAN)))
+            .andExpect(model().attribute("userSettings", new UserSettingsDto("DARK", Locale.GERMAN, TimeFormat.HOURS_24.name())))
             .andExpect(model().attribute("supportedThemes", contains(
                 new ThemeDto("SYSTEM", "system-label"),
                 new ThemeDto("LIGHT", "light-label"),
@@ -142,7 +142,7 @@ class UserSettingsViewControllerTest implements ControllerTest {
             )))
             .andExpect(model().attribute("supportedLocales", hasItem(hasProperty("locale", is(Locale.GERMAN)))));
 
-        verify(userSettingsService, never()).updateUserPreference(any(), any(), any());
+        verify(userSettingsService, never()).updateUserPreference(any(), any(), any(), any());
     }
 
     private ResultActions perform(MockHttpServletRequestBuilder builder) throws Exception {

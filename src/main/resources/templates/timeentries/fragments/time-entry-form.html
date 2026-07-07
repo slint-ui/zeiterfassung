@@ -28,9 +28,9 @@
         <th:block th:if="${showReadRow ?: false}">
           <div class="time-entry-read-row" data-read-row role="button" tabindex="0">
             <span data-read-time class="time-entry-read-row__time">
-              <th:block th:if="${timeEntry.start != null}" th:text="${#temporals.format(timeEntry.start, 'HH:mm')}"></th:block>
+              <th:block th:if="${timeEntry.start != null}" th:text="${#temporals.format(timeEntry.start, timeFormatPattern)}"></th:block>
               <th:block th:if="${timeEntry.start != null and timeEntry.end != null}">–</th:block>
-              <th:block th:if="${timeEntry.end != null}" th:text="${#temporals.format(timeEntry.end, 'HH:mm')}"></th:block>
+              <th:block th:if="${timeEntry.end != null}" th:text="${#temporals.format(timeEntry.end, timeFormatPattern)}"></th:block>
             </span>
             <span data-read-duration class="time-entry-read-row__duration" th:text="${timeEntry.duration}"></span>
             <span th:if="${timeEntry.isBreak}" data-read-break class="time-entry-read-row__break" th:text="#{time-entry.form.is-break.label}">Break</span>
