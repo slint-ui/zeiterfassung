@@ -62,6 +62,7 @@ class UserSettingsViewController implements HasTimeClock, HasLaunchpad, HasUserS
         model.addAttribute("userSettings", userSettingsToDto(userSettings));
         model.addAttribute("supportedLocales", getSupportedLocales());
         model.addAttribute("supportedThemes", getAvailableThemeDtos(locale));
+        model.addAttribute("supportedTimeFormats", TimeFormat.values());
 
         return new ModelAndView("user/user-settings", model.asMap());
     }
@@ -90,12 +91,14 @@ class UserSettingsViewController implements HasTimeClock, HasLaunchpad, HasUserS
             model.addAttribute("userSettings", userSettingsDto);
             model.addAttribute("supportedLocales", getSupportedLocales());
             model.addAttribute("supportedThemes", getAvailableThemeDtos(locale));
+            model.addAttribute("supportedTimeFormats", TimeFormat.values());
             return new ModelAndView("user/user-settings", model.asMap());
         }
 
         final Theme theme = themeNameToTheme(userSettingsDto.theme());
         final Locale userLocale = userSettingsDto.locale();
-        userSettingsService.updateUserPreference(userIdComposite, theme, userLocale);
+        final TimeFormat timeFormat = timeFormatFromName(userSettingsDto.timeFormat());
+        userSettingsService.updateUserPreference(userIdComposite, theme, userLocale, timeFormat);
 
         return new ModelAndView("redirect:/personal-settings");
     }
@@ -107,7 +110,16 @@ class UserSettingsViewController implements HasTimeClock, HasLaunchpad, HasUserS
 
     private UserSettingsDto userSettingsToDto(UserSettings userSettings) {
         final Locale locale = userSettings.locale().orElse(null);
-        return new UserSettingsDto(userSettings.theme().name(), locale);
+        return new UserSettingsDto(userSettings.theme().name(), locale, userSettings.timeFormat().name());
+    }
+
+    private TimeFormat timeFormatFromName(String name) {
+        try {
+            return TimeFormat.valueOf(name.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            LOG.error("tried to map unknown name={} to TimeFormat.", name, e);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "time format does not exist.");
+        }
     }
 
     private List<ThemeDto> getAvailableThemeDtos(Locale locale) {

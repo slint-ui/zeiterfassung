@@ -172,6 +172,36 @@
                   </li>
                 </ul>
               </fieldset>
+              <fieldset class="mt-16">
+                <legend
+                  id="time-format-description"
+                  th:text="#{user-settings.time-format.title}"
+                  class="mb-4 text-lg dark:text-zinc-300"
+                >
+                  Time Format
+                </legend>
+                <ul
+                  aria-describedby="time-format-description"
+                  class="flex flex-wrap gap-4"
+                >
+                  <li th:each="fmt : ${supportedTimeFormats}">
+                    <label
+                      class="flex items-center gap-3 px-4 py-3 cursor-pointer rounded-lg border-2 border-gray-300 dark:border-zinc-700 [&:has(:checked)]:border-blue-400 dark:[&:has(:checked)]:border-sky-400"
+                    >
+                      <input
+                        type="radio"
+                        name="timeFormat"
+                        th:value="${fmt.name()}"
+                        th:checked="${userSettings.timeFormat == fmt.name()}"
+                      />
+                      <span>
+                        <span class="font-semibold block" th:text="#{|user-settings.time-format.${fmt.name()}|}">Format</span>
+                        <span class="text-sm text-gray-500 dark:text-zinc-400" th:text="#{|user-settings.time-format.${fmt.name()}.example|}">00:00</span>
+                      </span>
+                    </label>
+                  </li>
+                </ul>
+              </fieldset>
               <noscript>
                 <div class="bottom-bar">
                   <div

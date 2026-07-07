@@ -64,4 +64,5 @@
   <include relativeToChangelogFile="true" file="changelog-3.4.1-slint-add-github-oauth-client.xml"/>
   <include relativeToChangelogFile="true" file="changelog-3.4.2-slint-user-settings-unique-verified-github-login.xml"/>
   <include relativeToChangelogFile="true" file="changelog-3.4.3-slint-git-oauth-token-profile.xml"/>
+  <include relativeToChangelogFile="true" file="changelog-3.4.4-slint-time-format.xml"/>
 </databaseChangeLog>
