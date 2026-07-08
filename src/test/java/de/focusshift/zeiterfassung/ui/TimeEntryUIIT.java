@@ -97,6 +97,23 @@ class TimeEntryUIIT {
     }
 
     @Test
+    void ensureTimeEntryReadRowIsVisibleForUserRole(Page page) {
+
+        final TimeEntryPage timeEntryPage = new TimeEntryPage(page);
+        final LoginPage loginPage = new LoginPage(page, port);
+
+        loginPage.login(USER);
+
+        final LocalDate today = LocalDate.now(USER_ZONE_ID);
+        timeEntryPage.fillNewTimeEntry(today, LocalTime.parse("09:00"), LocalTime.parse("10:00"), "regression test entry");
+        timeEntryPage.submitNewTimeEntryButton().click();
+
+        final Locator readRow = timeEntryPage.timeEntryReadRows().first();
+        readRow.waitFor(new Locator.WaitForOptions().setState(VISIBLE));
+        assertThat(readRow).isVisible();
+    }
+
+    @Test
     void ensureTimeEntryHistoryIsDisplayed(Page page) {
 
         final NavigationPage navigationPage = new NavigationPage(page);

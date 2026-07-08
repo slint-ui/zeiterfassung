@@ -69,6 +69,10 @@ public class TimeEntryPage {
         return page.getByTestId("time-entry-form").filter(new Locator.FilterOptions().setHas(childLocator));
     }
 
+    public Locator timeEntryReadRows() {
+        return page.locator("[data-read-row]");
+    }
+
     private Locator timeEntryCreateContainer() {
         return page.getByTestId("time-entry-create-container");
     }
