@@ -8,13 +8,16 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 class ThemeConfiguration implements WebMvcConfigurer {
 
     private final UserThemeDataProvider userThemeDataProvider;
+    private final UserTimeFormatDataProvider userTimeFormatDataProvider;
 
-    ThemeConfiguration(UserThemeDataProvider userThemeDataProvider) {
+    ThemeConfiguration(UserThemeDataProvider userThemeDataProvider, UserTimeFormatDataProvider userTimeFormatDataProvider) {
         this.userThemeDataProvider = userThemeDataProvider;
+        this.userTimeFormatDataProvider = userTimeFormatDataProvider;
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(userThemeDataProvider);
+        registry.addInterceptor(userTimeFormatDataProvider);
     }
 }
